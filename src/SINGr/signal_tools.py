@@ -1,7 +1,7 @@
 from numpy import isclose
 import pandas as pd 
 
-def walk_back_to_logic_level(
+def walk_forward_to_logic_level(
         df:pd.DataFrame, key:str, 
         t_transition_detected: float, logic_level_v:float,
         v_tol: float
@@ -10,8 +10,8 @@ def walk_back_to_logic_level(
     Walks back from transition being detected to the previous logic level.
     '''
 
-    df_walkback = df.where(df['time']<t_transition_detected).sort_values(['time'], ascending=False)
-    for row in df_walkback.itertuples():
+    df_walk = df.where(df['time']>t_transition_detected)
+    for row in df_walk.itertuples():
         if isclose(row[key], logic_level_v, atol=v_tol):
             return row['time']
     else:
@@ -28,8 +28,8 @@ def classify_period(
     staying mostly in between the logic thresholds.
     '''
 
-    diff_df = df.rolling(10).median().diff().median()
-    dxdt = diff_df[key]/diff_df['time']
+    median_diff_df = df.rolling(10).median().diff().median()
+    dxdt = median_diff_df[key]/median_diff_df['time']
     if dxdt > min_transition_slope:
         df['event'] = 'rising'
         return df
