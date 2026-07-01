@@ -1,7 +1,13 @@
+'''
+Library of different constructor functions which produce generic
+chip-to-chip communication circuits for analysis. 
+'''
+
 from InSpice import Circuit
 from typing import List, Literal, Optional
-from .model import Model
 import re
+
+from .model import Model
 
 _TOPOLOGIES = Literal['Point2Point']
 
@@ -17,18 +23,19 @@ def instantiate_subckt_with_instance_params(
     for later editing. 
     '''
     sckt_line_start = model.subcircuit_card.find('.SUBCKT')
-    sckt_line_end = model.subcircuit_card.find(sub='\n', start=sckt_line_start, end=None)
+    sckt_line_end = model.subcircuit_card.find('\n', sckt_line_start)
     param_names = re.findall(_NG_PARAMS, model.subcircuit_card[sckt_line_start:sckt_line_end])
     param_dict = {}
     for param_name in param_names:
         instance_param_name = param_name+'_'+instance_name
         circ.parameter(instance_param_name, default_val)
         param_dict.update({param_name: f'{{{instance_param_name}}}'})
-    circ.X(instance_name, model.model_name, *pins, **param_dict)
+    circ.X(instance_name, model.spice_model_name, *pins, **param_dict)
 
 def build_p2p(
-        ins: List[Model], outs: List[Model], 
-        tline:Model, terminations: Optional[List[Model]] = None
+        input_pins: List[Model], output_pins: List[Model], 
+        tline:Model, tline_length:float, 
+        terminations: Optional[List[Model]] = None
         ) -> Circuit:
     '''
     This function builds an ngSPICE netlist of a point to point communication net 
@@ -40,16 +47,22 @@ def build_p2p(
     - Support for terminations at either end of the net.
     '''
 
-    critical_signal = ins[0].model_name
-    circ = Circuit(f"Point2Point_{critical_signal}")
-    for idx, i, o in zip(range(len(ins)), ins, outs):
-        circ.raw_spice = circ.raw_spice + (i.subcircuit_card) + '\n\n'
-        circ.raw_spice = circ.raw_spice + (o.subcircuit_card) + '\n\n'
-        instantiate_subckt_with_instance_params(circ, i, [f'TLine_in{idx}'], f'input{idx}')
-        instantiate_subckt_with_instance_params(circ, o, [f'TLine_out{idx}'], f'output{idx}')
+    critical_signal = output_pins[0].model_name
+    circ: Circuit = Circuit(f"Point2Point_{critical_signal}")
+    for idx, i, o in zip(range(len(input_pins)), input_pins, output_pins):
+        circ.include(i.lib)
+        circ.include(o.lib)
+        if 'TRIG' in i.subcircuit_card:
+            instantiate_subckt_with_instance_params(circ, i, [f'sender{idx}', f'trig_{idx}'], f'sender{idx}')
+        else:
+            instantiate_subckt_with_instance_params(circ, i, [f'sender{idx}'], f'sender{idx}')
+        instantiate_subckt_with_instance_params(circ, o, [f'TLine_out{idx}'], f'receiver{idx}')
+        circ.R(f's{idx}', f'sender{idx}', f'TLine_in{idx}', 25)
         
-    in_pins = [pin for pin in circ.node_names if pin.startswith('TLine_in')]
-    out_pins = [pin for pin in circ.node_names if pin.startswith('TLine_out')]
-    circ.X(f'TLINE', tline.model_name, *out_pins, circ.gnd, *in_pins, circ.gnd)
+    
+    tline_ins = [pin for pin in circ.node_names if pin.startswith('TLine_in')]
+    tline_outs = [pin for pin in circ.node_names if pin.startswith('TLine_out')]
+    circ.include(tline.lib)
+    circ.CoupledMulticonductorLine(f'TLINE', *tline_outs, circ.gnd, *tline_ins, circ.gnd, length=tline_length, model=tline.model_name)
 
     return circ
