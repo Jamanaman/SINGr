@@ -1,32 +1,25 @@
-from . import topolib as tp, model
+'''
+Module comprised of Pydantic BaseModel \'Composition\' which
+enables one to compose an ngSPICE simulation to be run from
+a configuration.
+'''
+
 from pydantic import BaseModel
-from typing import List, Optional
-from InSpice.Spice.Simulator import Simulator
-from InSpice import Circuit
+from typing import List, Optional, Tuple
+from .topolib import _TOPOLOGIES
+from .analysis import _ANALYSES
+from .model import Model
 
 class Composition(BaseModel):
     name: str
-    inputs: List[str]
-    outputs: List[str]
-    topology: tp._TOPOLOGIES
-    tlines: List[str]
-    terminations: Optional[List[str]] = None
+    topology: _TOPOLOGIES
+    analyses: List[_ANALYSES]
+    inputs: List[str|Model]
+    outputs: List[str|Model]
+    tlines: List[str|Model]
+    tline_lengths: List[float]
+    terminations: Optional[List[str|Model]] = None
     stimuli: List[str]
     clock_frequencies: List[float]
-
-    def compose_simulation(self):
-        simulator = Simulator.factory()
-
-        IC_inputs = [model.build_model('PIN', ic_input, 'Input') for ic_input in self.inputs]
-        IC_outputs = [model.build_model('PIN', ic_output, 'Output', stimulus) for ic_output, stimulus in zip(self.outputs, self.stimuli)]
-        tline = model.build_model('TLine', self.tlines[0])
-
-        circ: Circuit = tp.build_p2p(IC_inputs, IC_outputs, tline)
-
-        simulator = Simulator.factory()
-        simulation = simulator.simulation(circ, temperature=25, nominal_temperature=25)
-        return simulation
-
-    
-
+    v_logic: List[Tuple[float, float]]
     
