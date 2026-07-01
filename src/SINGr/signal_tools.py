@@ -1,3 +1,7 @@
+'''
+General utility functions for processing time series signals.
+'''
+
 from numpy import isclose
 import pandas as pd 
 
@@ -10,10 +14,10 @@ def walk_forward_to_logic_level(
     Walks back from transition being detected to the previous logic level.
     '''
 
-    df_walk = df.where(df['time']>t_transition_detected)
+    df_walk = df.where(df['time']>t_transition_detected).dropna()
     for row in df_walk.itertuples():
-        if isclose(row[key], logic_level_v, atol=v_tol):
-            return row['time']
+        if isclose(row[1], logic_level_v, atol=v_tol):
+            return row[2]
     else:
         raise Exception()
         
