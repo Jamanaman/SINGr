@@ -10,7 +10,8 @@ import tabulate as tab
 import matplotlib.pyplot as plt
 from typing import List, Optional, Literal
 
-from .eye_tools import capture_transitions, generate_eye_histogram
+from .signal_tools import capture_transitions, characterise_transitions
+from .eye_tools import generate_eye_histogram
 
 _ANALYSES = Literal['EYE']
 

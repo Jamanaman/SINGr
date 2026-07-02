@@ -5,96 +5,11 @@ signal eye diagrams.
 
 from numpy import histogram2d, floor, ceil, linspace, mean, diff, argmin
 from scipy.signal import fftconvolve
-from scipy.interpolate import make_interp_spline, BSpline
 from scipy.stats import norm
 import kmeans1d
 import pandas as pd 
-from typing import List, Optional
 
 from .signal_tools import walk_forward_to_logic_level, classify_period
-
-def capture_transitions(
-        df: pd.DataFrame, key:str, 
-        clock_frequency:float, v_high:float, 
-        v_low:float, v_high_th:float,
-        v_low_th: float, datastream:Optional[List] = None
-        ) -> pd.DataFrame:
-    '''
-    Reads a datastream and triggers on valid logic transition, before classifying every
-    clock period thereafter. Classifies into simple binary logic events of 'high', 'low',
-    'rising', 'falling' or None if no valid event can be classified due to the signal
-    staying mostly in between the logic thresholds. 
-    
-    TODO: If a datastream is provided,
-    the data will be classified by matching with the datastream. 
-
-    TODO: Implement parallel option as this is completely parallelisable after triggering 
-    has occurred. 
-    '''
-    clock_period = 1/clock_frequency
-    min_transition_slope = (v_high-v_low)/clock_period/2
-    resolving_sample_period = clock_period/5000
-    min_edge_rate_v_per_sample = min_transition_slope*resolving_sample_period
-
-    hold = False
-    t_transition = 0
-    triggered = False
-    first_edge_rising = False
-    # Use smoothed signal to find a transition 
-    resample_time = linspace(0, df['time'].max(), num=int(ceil(df['time'].max()/resolving_sample_period)))
-    data: BSpline = make_interp_spline(y=df[key], x=df['time'])
-    df_resampled = pd.DataFrame({key: data(resample_time), 'time': resample_time})
-    df_smoothed = df_resampled.rolling(window=10).median().dropna(ignore_index=True)
-    for i in range(1, len(df_smoothed.index)):
-        if triggered:
-            break
-        if not hold:
-            # Check to see if signal deviates outside of logic level
-            if df_smoothed[key][i] - df_smoothed[key][i-1] < -min_edge_rate_v_per_sample and df_smoothed[key][i] < v_high_th:
-                hold = True
-                t_transition = df['time'][i]
-                first_edge_rising = False
-            elif df_smoothed[key][i] - df_smoothed[key][i-1] > min_edge_rate_v_per_sample and df_smoothed[key][i] > v_low_th:
-                hold = True
-                t_transition = df_smoothed['time'][i]
-                first_edge_rising = True
-            else:
-                continue
-        else:
-            # Check to see if signal has completed a transition from one level to the next
-            is_high_to_low = first_edge_rising and df[key][i] < df[key][i-1] and df[key][i] < v_low_th
-            is_low_to_high = not first_edge_rising and df[key][i] > df[key] [i-1] and df[key][i] > v_high_th
-            if is_high_to_low or is_low_to_high:
-                if t_transition + df['time'][i] >= clock_period:
-                    triggered = True
-                    t_transition = walk_forward_to_logic_level(
-                        df, key, 
-                        t_transition, 
-                        v_low if is_high_to_low else v_high, 
-                        v_high*0.01
-                        )
-                    break
-                else:
-                    hold = False
-    if not triggered:
-        raise Exception()
-
-    # take signal from half a clock period before the transition
-    df_trig = df_resampled.where(df_resampled['time']>=t_transition-clock_period).dropna(ignore_index=True)
-    # rezero the time of the data signal from the triggered point
-    df_trig['time'] = df_trig['time']-df_trig['time'][0]
-    df_classified = pd.DataFrame()
-    for _, data in df_trig.groupby(df_trig.index // 1000):        
-        period_df = classify_period(data, key, v_high_th, v_low_th, min_edge_rate_v_per_sample)
-        period_df['period_index'] = floor(period_df['time'].min()/clock_period)
-        period_df['period_time'] = period_df['time']-period_df['time'].min()
-        df_classified = pd.concat(
-            [
-                df_classified, 
-                period_df
-            ]
-        )
-    return df_classified
 
 def chunk_data_for_eye(transitions_df: pd.DataFrame, chunk_periods:int=3):
     '''
