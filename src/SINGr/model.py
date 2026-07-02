@@ -2,11 +2,10 @@ from pybis2spice import subcircuit as sckt, circuit_builder as ckt_build, data_m
 from ecdtools import ibis as ecd #type:ignore
 from dataclasses import dataclass
 from pathlib import Path
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Literal, Optional
 import regex as re
 import os
-import itertools
 
 # supported RLGC File Sources
 _SOURCE = Literal['Zuken'] # TODO add support for openEMS to generate RLGC values

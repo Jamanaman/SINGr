@@ -33,7 +33,7 @@ def instantiate_subckt_with_instance_params(
     circ.X(instance_name, model.spice_model_name, *pins, **param_dict)
 
 def build_p2p(
-        input_pins: List[Model], output_pins: List[Model], 
+        output_pins: List[Model], input_pins: List[Model],
         tline:Model, tline_length:float, 
         terminations: Optional[List[Model]] = None
         ) -> Circuit:
