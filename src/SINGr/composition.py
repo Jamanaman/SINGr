@@ -6,20 +6,22 @@ a configuration.
 
 from pydantic import BaseModel
 from typing import List, Optional, Tuple
-from .topolib import _TOPOLOGIES
 from .analysis import _ANALYSES
 from .model import Model
 
 class Composition(BaseModel):
     name: str
-    topology: _TOPOLOGIES
     analyses: List[_ANALYSES]
-    inputs: List[str|Model]
-    outputs: List[str|Model]
-    tlines: List[str|Model]
-    tline_lengths: List[float]
-    terminations: Optional[List[str|Model]] = None
-    stimuli: List[str]
-    clock_frequencies: List[float]
-    v_logic: List[Tuple[float, float]]
-    
+    net_tree: CommunicationNet
+
+class CommunicationNet(BaseModel):
+    t_line_nodes_in: List[Model|str]
+    t_line_nodes_out: List[Model|CommunicationNet|str]
+    transmission_line: Model
+    l_tline_m: float
+    clock_frequencies_Hz: List[Optional[float]]
+    delays_s: List[Optional[float]]
+    v_logic: List[Optional[Tuple[Optional[float], float]]]
+    stimuli: List[Optional[str|int]]
+    terminations_start: List[Optional[Model]]
+    terminations_end: List[Optional[Model]]
