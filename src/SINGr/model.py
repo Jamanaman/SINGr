@@ -1,8 +1,7 @@
 from pybis2spice import subcircuit as sckt, circuit_builder as ckt_build, data_model as dm
 from ecdtools import ibis as ecd #type:ignore
-from dataclasses import dataclass
+from pydantic import BaseModel
 from pathlib import Path
-from abc import ABC
 from typing import Literal, Optional
 import regex as re
 import os
@@ -19,8 +18,7 @@ def build_model(model_type: str, **kwargs):
         if not kwargs.get('file_name') is None:
             return CoupledTlineModel.build_model_from_file(**kwargs)
 
-@dataclass
-class Model(ABC):
+class Model(BaseModel):
     model_name: str
     component_name: str
     subcircuit_card: str
@@ -31,8 +29,8 @@ class Model(ABC):
     def build_model_from_file(cls, *args, **kwargs) -> Model:
         raise NotImplementedError()
 
-@dataclass
 class CoupledTlineModel(Model):
+    num_lines:int
     @classmethod
     def build_model_from_file(cls, file_name:str,  source:_SOURCE='Zuken', lib_path:str = '.') -> Model:
         vals = [[], [], [], []]
@@ -66,6 +64,7 @@ class CoupledTlineModel(Model):
                 raise e
         if not len(vals[0]) == len(vals[1]) and not len(vals[2]) == len(vals[3]):
             raise ValueError()
+        num_lines = len(vals[0])
         for property, values in zip(['L', 'C', 'R', 'G'], vals):
             _tline_str = _tline_str + f' {property}='
             property_vals = ''
@@ -81,10 +80,12 @@ class CoupledTlineModel(Model):
         subcircuit_card_path = Path(lib_path, f'{model_name}.lib')
         with open(subcircuit_card_path, 'w+') as fp:
             fp.write(spice_str)
-        return CoupledTlineModel(model_name=model_name, component_name='Coupled Transmission Line', subcircuit_card=spice_str, lib=subcircuit_card_path, spice_model_name=model_name)
+        return CoupledTlineModel(
+            model_name=model_name, component_name='Coupled Transmission Line', 
+            subcircuit_card=spice_str, lib=subcircuit_card_path, 
+            spice_model_name=model_name, num_lines=num_lines
+            )
         
-
-@dataclass
 class IBISModel(Model):  
     @classmethod
     def build_model_from_file(cls, model_name:str, component_name: str, ibis_file:str, io_type:sckt._IO_TYPE, corner:sckt._CORNER, stimulus:Optional[sckt._STIMULUS]='ALL', lib_path:Path|str = '.') -> Model:
