@@ -113,7 +113,7 @@ def capture_transitions(
                 if t_transition + df['time'][i] >= clock_period:
                     triggered = True
                     t_transition = walk_forward_to_logic_level(
-                        df, key, 
+                        df, 
                         t_transition, 
                         v_low if is_high_to_low else v_high, 
                         v_high*0.01

@@ -19,6 +19,7 @@ def chunk_data_for_eye(transitions_df: pd.DataFrame, chunk_periods:int=3):
     for chunk, data in transitions_df.groupby(transitions_df['period_index'] // chunk_periods):
         data['sequence'] = chunk if not None in data['event'].unique() else None
         data['chunk_time'] = data['time']-data['time'].min()
+        data['sequence_events'] = ' '.join([event for event in data['event'].unique()])
         chunk_df = pd.concat([chunk_df, data], ignore_index=True)
     chunk_df=chunk_df.dropna(ignore_index=True)
     return chunk_df
@@ -149,7 +150,7 @@ def generate_eye_histogram(
                 ).min()
         hist_measurements.update({f'eye_width_{i-1}':t_right-t_left})
 
-    return hist, hist_measurements
+    return chunk_df, hist_measurements
 
 def apply_mask(mask, eye):
     pass

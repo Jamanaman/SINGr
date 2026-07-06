@@ -25,10 +25,10 @@ def perform_eye_analysis(
 
     transitions_df = capture_transitions(df, key, clock_frequency, v_high, v_low, threshold_pct, datastream)
 
-    hist, hist_measurements = generate_eye_histogram(transitions_df, key, statistical_jitter_s)
+    chunk_df, hist_measurements = generate_eye_histogram(transitions_df, key, statistical_jitter_s)
 
     if visualise:
-        sns.heatmap(hist, robust=True)
+        ax = sns.lineplot(chunk_df, x='chunk_time', y=key, units='sequence', estimator=None, alpha=0.33)
         print(hist_measurements)
         plt.show()
 
@@ -41,4 +41,7 @@ def perform_waveform_analysis(
     
     transitions_df = capture_transitions(df, key, clock_frequency, v_high, v_low, threshold_pct, datastream)
     transition_features = characterise_transitions(df, key, v_high, v_low, threshold_pct)
+
+    if visualise:
+        pass
     
