@@ -65,7 +65,7 @@ def capture_transitions(
     staying mostly in between the logic thresholds. 
 
     Returns a resampled and fully classified time series dataframe with equidistant time
-    samples at 5000 samples per period. 
+    samples at 1000 samples per period. 
     
     TODO: If a datastream is provided,
     the data will be classified by matching with the datastream. 
@@ -78,16 +78,17 @@ def capture_transitions(
     v_high_th = v_high-(v_high-v_low)*threshold_pct
     clock_period = 1/clock_frequency
     min_transition_slope = (v_high-v_low)/clock_period/2
-    resolving_sample_period = clock_period/5000
+    resolving_sample_period = clock_period/1000
     min_edge_rate_v_per_sample = min_transition_slope*resolving_sample_period
-
+    min_delay = clock_period
     hold = False
     t_transition = 0
     triggered = False
     first_edge_rising = False
     # Use smoothed signal to find a transition 
-    resample_time = linspace(0, df['time'].max(), num=int(ceil(df['time'].max()/resolving_sample_period)))
-    interp_data: BSpline = make_interp_spline(y=df[key], x=df['time'])
+    resample_time = linspace(min_delay, df['time'].max(), num=int(ceil((df['time'].max()-min_delay)/resolving_sample_period)))
+    df_trim = df.where(df['time']>=min_delay).dropna()
+    interp_data: BSpline = make_interp_spline(y=df_trim[key], x=df_trim['time'])
     df_resampled = pd.DataFrame({key: interp_data(resample_time), 'time': resample_time})
     df_smoothed = df_resampled.rolling(window=10).median().dropna(ignore_index=True)
     for i in range(1, len(df_smoothed.index)):
@@ -160,16 +161,16 @@ def characterise_transitions(
     measurements_dict = {}
     edge_v = v_high_th-v_low_th
     mid_v = edge_v/2+v_low_th
-    edge_df = transitions_df.where((transitions_df['event'] == 'rise') or (transitions_df['event'] == 'fall'))
+    edge_df = transitions_df.where((transitions_df['event'] == 'rise')|(transitions_df['event'] == 'fall')).dropna()
     for edge, data in edge_df.where(abs(edge_df[key]-mid_v)<=mid_v).groupby('event'):
         
         measurements_dict.update({f'{edge}_time': data.groupby('period_index').apply(lambda period: period['time'].max()-period['time'].min()).mean()})
         measurements_dict.update({f'slew_rate_{edge}': measurements_dict[f'{edge}_time']/edge_v})
     
     measurements_dict.update({
-        'overshoot': edge_df[key].where(edge_df['event']=='rise').groupby('period_index').max().mean()-v_high,
-        'undershoot': edge_df[key].where(edge_df['event']=='fall').groupby('period_index').min().mean()-v_low,
-        'settling_time': edge_df.groupby('period_index').apply(lambda period: period['time'].where(abs(period[key]-mid_v)<=mid_v).max()).mean()
+        'overshoot': edge_df.where(edge_df['event']=='rise').dropna().groupby('period_index').max(numeric_only=True).mean()[key]-v_high
+        'undershoot': edge_df.where(edge_df['event']=='fall').dropna().groupby('period_index').min(numeric_only=True).mean()[key]-v_low,
+        'settling_time': edge_df.groupby('period_index').apply(lambda period: period['period_time'].where(abs(period[key]-mid_v)<=mid_v).max()).mean()
     })
 
     return measurements_dict
