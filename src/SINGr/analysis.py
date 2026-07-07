@@ -40,7 +40,7 @@ def perform_waveform_analysis(
     ):
     
     transitions_df = capture_transitions(df, key, clock_frequency, v_high, v_low, threshold_pct, datastream)
-    transition_features = characterise_transitions(df, key, v_high, v_low, threshold_pct)
+    transition_features = characterise_transitions(transitions_df, key, v_high, v_low, threshold_pct)
 
     if visualise:
         pass

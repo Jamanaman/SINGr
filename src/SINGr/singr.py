@@ -1,15 +1,12 @@
 from InSpice.Spice.Simulator import Simulator
 from InSpice.Probe.WaveForm import TransientAnalysis
 from InSpice import Circuit
-from random import randint
-from typing import List
 import pandas as pd, numpy as np
 
-from . import net_builder as build, model
+from . import net_builder as build
 
 from .composition import Composition
-from .analysis import perform_eye_analysis
-from .sim_tools import make_pwl_from_bitstream
+from .analysis import perform_eye_analysis, perform_waveform_analysis
 
 def compose_and_run_simulation(composition: Composition) -> TransientAnalysis:
         
@@ -46,11 +43,10 @@ def compose_and_run_simulation(composition: Composition) -> TransientAnalysis:
         return results
 
 def analyse_simulation_results(composition:Composition, results:TransientAnalysis):
-    
+    results_df = pd.DataFrame()
+    results_df['pin_out_0_0'] = pd.Series(results['pin_out_0_0'], dtype=np.float64, name='pin_out_0_0')
+    results_df['time'] = pd.Series(results.time, dtype=np.float64, name='time')
     if "EYE" in composition.analyses:
-        results_df = pd.DataFrame()
-        results_df['pin_out_0_0'] = pd.Series(results['pin_out_0_0'], dtype=np.float64, name='pin_out_0_0')
-        results_df['time'] = pd.Series(results.time, dtype=np.float64, name='time')
         perform_eye_analysis(
             results_df, 
             'pin_out_0_0', 
@@ -60,3 +56,12 @@ def analyse_simulation_results(composition:Composition, results:TransientAnalysi
             0.9, 
             0
             )
+    if "WAVEFORM" in composition.analyses:
+        perform_waveform_analysis(
+            results_df,
+            'pin_out_0_0', 
+            composition.net_tree.clock_frequencies_Hz[0],
+            composition.net_tree.v_logic[0][1],
+            composition.net_tree.v_logic[0][0],
+            0.9
+        )
