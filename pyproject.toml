@@ -9,7 +9,8 @@ dependencies = [
     "pybis2spice",
     "scipy",
     "kmeans1d",
-    "pandas"
+    "pandas",
+    "Jinja2"
 ]
 maintainers = [
     {name = "Thomas Damjanovic"}
