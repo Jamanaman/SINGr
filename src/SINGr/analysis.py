@@ -6,7 +6,6 @@ Implemented analyses include:
 
 import pandas as pd
 import seaborn as sns
-import tabulate as tab
 import matplotlib.pyplot as plt
 from typing import List, Optional, Literal
 
@@ -29,7 +28,7 @@ def perform_eye_analysis(
 
     if visualise:
         ax = sns.lineplot(chunk_df, x='chunk_time', y=key, units='sequence', estimator=None, alpha=0.33)
-        print(hist_measurements)
+        hist_measurements = {key: f'{val:.3f}' for key, val in hist_measurements.items()}
         plt.show()
 
 def perform_waveform_analysis(
@@ -43,5 +42,12 @@ def perform_waveform_analysis(
     transition_features = characterise_transitions(transitions_df, key, v_high, v_low, threshold_pct)
 
     if visualise:
-        pass
-    
+        
+        grid = sns.relplot(
+            transitions_df, y=key, x='period_time', col='event', 
+            kind='line', estimator=None, units='period_index', 
+            alpha=0.33, col_wrap=2, col_order=['rise', 'fall', 'high', 'low']
+            )
+        transition_features = {key: f'{val:.3f}' for key, val in transition_features.items()}
+        print(transition_features)
+        plt.show()
