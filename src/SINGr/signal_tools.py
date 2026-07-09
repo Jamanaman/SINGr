@@ -12,7 +12,7 @@ def walk_forward_to_logic_level(
         logic_level_v:float, v_tol: float
         ) -> float:
     '''
-    Walks back from transition being detected to the previous logic level.
+    Walks from transition being detected to the next logic level.
     '''
 
     df_walk = df.where(df['time']>t_transition_detected).dropna()
@@ -33,12 +33,15 @@ def classify_period(
     staying mostly in between the logic thresholds.
     '''
 
-    median_diff_df = df.rolling(10).median().diff().median()
-    dxdt = median_diff_df[key]/median_diff_df['time']
-    if dxdt > min_transition_slope:
+    window_length = 10
+    derivative_threshold = min_transition_slope*window_length
+    mean_diff_df = df.diff(window_length).mean()
+    dxdt = mean_diff_df[key]
+    end_state_voltage = df.iloc[-1-window_length:-1][key].mean()
+    if dxdt > derivative_threshold and end_state_voltage >= v_high_th:
         df['event'] = 'rise'
         return df
-    elif dxdt < -min_transition_slope:
+    elif dxdt < -derivative_threshold and end_state_voltage <= v_low_th:
         df['event'] = 'fall'
         return df
     else:
@@ -74,12 +77,11 @@ def capture_transitions(
     has occurred. 
     '''
 
-    v_low_th = v_low+(v_high-v_low)*threshold_pct
-    v_high_th = v_high-(v_high-v_low)*threshold_pct
+    v_high_th = v_low+(v_high-v_low)*threshold_pct
+    v_low_th = v_high-(v_high-v_low)*threshold_pct
     clock_period = 1/clock_frequency
-    min_transition_slope = (v_high-v_low)/clock_period/2
+    min_transition_slope = (v_high_th-v_low_th)/1000/2
     resolving_sample_period = clock_period/1000
-    min_edge_rate_v_per_sample = min_transition_slope*resolving_sample_period
     min_delay = clock_period
     hold = False
     t_transition = 0
@@ -96,11 +98,11 @@ def capture_transitions(
             break
         if not hold:
             # Check to see if signal deviates outside of logic level
-            if df_smoothed[key][i] - df_smoothed[key][i-1] < -min_edge_rate_v_per_sample and df_smoothed[key][i] < v_high_th:
+            if df_smoothed[key][i] - df_smoothed[key][i-1] < -min_transition_slope and df_smoothed[key][i] < v_high_th:
                 hold = True
                 t_transition = df['time'][i]
                 first_edge_rising = False
-            elif df_smoothed[key][i] - df_smoothed[key][i-1] > min_edge_rate_v_per_sample and df_smoothed[key][i] > v_low_th:
+            elif df_smoothed[key][i] - df_smoothed[key][i-1] > min_transition_slope and df_smoothed[key][i] > v_low_th:
                 hold = True
                 t_transition = df_smoothed['time'][i]
                 first_edge_rising = True
@@ -131,7 +133,7 @@ def capture_transitions(
     df_trig['time'] = df_trig['time']-df_trig['time'][0]
     df_classified = pd.DataFrame()
     for _, data in df_trig.groupby(df_trig.index // 1000):
-        period_df = classify_period(data, key, v_high_th, v_low_th, min_edge_rate_v_per_sample)
+        period_df = classify_period(data, key, v_high_th, v_low_th, min_transition_slope)
         period_df['period_index'] = floor(period_df['time'].min()/clock_period)
         period_df['period_time'] = period_df['time']-period_df['time'].min()
         df_classified = pd.concat(
@@ -164,13 +166,13 @@ def characterise_transitions(
     edge_df = transitions_df.where((transitions_df['event'] == 'rise')|(transitions_df['event'] == 'fall')).dropna()
     for edge, data in edge_df.where(abs(edge_df[key]-mid_v)<=mid_v).groupby('event'):
         
-        measurements_dict.update({f'{edge}_time': data.groupby('period_index').apply(lambda period: period['time'].max()-period['time'].min()).mean()})
-        measurements_dict.update({f'slew_rate_{edge}': measurements_dict[f'{edge}_time']/edge_v})
+        measurements_dict.update({f'{edge.capitalize()} Time': data.groupby('period_index').apply(lambda period: period['time'].max()-period['time'].min()).mean()})
+        measurements_dict.update({f'Slew Rate {edge.capitalize()}': measurements_dict[f'{edge.capitalize()} Time']/edge_v})
     
     measurements_dict.update({
-        'overshoot': edge_df.where(edge_df['event']=='rise').dropna().groupby('period_index').max(numeric_only=True).mean()[key]-v_high
-        'undershoot': edge_df.where(edge_df['event']=='fall').dropna().groupby('period_index').min(numeric_only=True).mean()[key]-v_low,
-        'settling_time': edge_df.groupby('period_index').apply(lambda period: period['period_time'].where(abs(period[key]-mid_v)<=mid_v).max()).mean()
+        'Overshoot': edge_df.where(edge_df['event']=='rise').dropna().groupby('period_index').max(numeric_only=True).mean()[key]-v_high,
+        'Undershoot': edge_df.where(edge_df['event']=='fall').dropna().groupby('period_index').min(numeric_only=True).mean()[key]-v_low,
+        'Settling Time': edge_df.groupby('period_index').apply(lambda period: period['period_time'].where(abs(period[key]-mid_v)<=mid_v).max()).mean()
     })
 
     return measurements_dict
