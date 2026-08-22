@@ -22,6 +22,21 @@ def instantiate_subckt_with_instance_params(
     '''
     Instantiates a subcircuit instance of the given subcircuit model and adds named parameters to the netlist
     for later editing. 
+
+    Parameters
+    ----------
+    circ: Circuit
+        circuit for subcircuit to be added into
+    model: Model
+        SINGr model to be used to inject subcircuit
+    pins: List[str]
+        pin names in order
+    instance_name: str
+        name of subcircuit instance
+    custom_params: Dict
+        dictionary of named parameters to add to be able to be changed parametrically
+    default_val: str
+        default value for all instance parameters if there is no preconfigured default in the custom params dict
     '''
     sckt_line_start, sckt_line_end = find_subckt_line(model.subcircuit_card)
     param_names = re.findall(_NG_PARAMS, model.subcircuit_card[sckt_line_start:sckt_line_end])
@@ -33,9 +48,33 @@ def instantiate_subckt_with_instance_params(
     circ.X(instance_name, model.spice_model_name, *pins, **param_dict)
 
 def traverse_net_tree_and_build(net_tree: CommunicationNet, tree_level:int = 0, circ: Circuit = Circuit('Net_Tree')) -> Circuit:
+    '''
+    Traverses the net tree structure and progressively connects all objects. This function recurses down the net tree and builds each
+    communication net in turn, connecting named nodes directly and adding all required subcircuits into the circuit with appropriate
+    configuration.
+
+    Parameters
+    ----------
+    net_tree: CommunicationNet
+        net tree to be built
+    tree_level: int
+        current recursion depth
+    circ: Circuit
+        current state of InSPICE circuit to be passed through different recursive calls
+    
+    Returns
+    -------
+        InSPICE circuit with completed net tree from the current depth
+    '''
     tline_ins = []
     for idx, (node_in, termination_in, stimulus, freq, delay) in enumerate(zip(net_tree.t_line_nodes_in, net_tree.terminations_start, net_tree.stimuli, net_tree.clock_frequencies_Hz, net_tree.delays_s)):
-        name_node_in = f'pin_in_{tree_level}_{idx}'
+        if isinstance(node_in, str):
+            if 'gnd' in node_in:
+                name_node_in = circ.gnd
+            else:
+                name_node_in = node_in
+        else:
+            name_node_in = f'pin_in_{tree_level}_{idx}' 
         name_series_node = f'line_in_{tree_level}_{idx}'
         series_termination = False
         if not termination_in is None:
@@ -71,7 +110,14 @@ def traverse_net_tree_and_build(net_tree: CommunicationNet, tree_level:int = 0, 
     # Output nodes
     tline_outs = []
     for idx, (node_out, termination_out) in enumerate(zip(net_tree.t_line_nodes_out, net_tree.terminations_end)):
-        name_node_out = f'pin_out_{tree_level}_{idx}'
+        # check if node type is string to connect directly to an arbitrary node, this can also be used to inject ground connections
+        if isinstance(node_out, str):
+            if 'gnd' in node_out:
+                name_node_out = circ.gnd
+            else:
+                name_node_out = node_out
+        else:
+            name_node_out = f'pin_out_{tree_level}_{idx}'
         name_series_node = f'line_out_{tree_level}_{idx}'
         series_termination = False
         
