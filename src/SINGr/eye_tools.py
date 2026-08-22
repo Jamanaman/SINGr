@@ -9,8 +9,6 @@ from scipy.stats import norm
 import kmeans1d
 import pandas as pd 
 
-from .signal_tools import walk_forward_to_logic_level, classify_period
-
 def chunk_data_for_eye(transitions_df: pd.DataFrame, chunk_periods:int=3):
     '''
     Chunk the available data into consecutive sequences which can be identified as valid events.
