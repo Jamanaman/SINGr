@@ -1,11 +1,12 @@
 [project]
 name = "SINGr"
-dynamic = ["version"]
+version="0.0.1dev1"
+requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "seaborn",
     "InSpice",
-    "ecdtools",
+    "ecdtools>=0.7.0",
     "pybis2spice",
     "scipy",
     "kmeans1d",
@@ -16,13 +17,11 @@ maintainers = [
     {name = "Thomas Damjanovic"}
 ]
 readme = "README.md"
+description = "ngSPICE Based Signal-Integrity Simulator and Analyser."
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.version]
-path="src/SINGr/version.py"
+requires = ["uv", "uv_build"]
+build-backend = "uv_build"
 
 [tool.mypy]
 python_version = "3.14"
@@ -37,3 +36,10 @@ reportCallIssue = "information"
 reportReturnType = "information"
 reportAttributeAccessIssue = "information"
 reportOperatorIssue = "information"
+
+[dependency-groups]
+docs = [
+    "markupsafe>=3.0.3",
+    "shibuya>=2026.7.12",
+    "sphinx>=8.1.3",
+]
