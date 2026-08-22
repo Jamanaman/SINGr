@@ -157,17 +157,17 @@ def characterise_transitions(
     TODO: Potentially add preshoot analysis and ringing analysis. 
     '''
     
-    v_tol = (v_high-v_low)*threshold_pct
+    v_tol = (v_high-v_low)*(1-threshold_pct)
     v_low_th = v_low+v_tol
     v_high_th = v_high-v_tol
     measurements_dict = {}
     edge_v = v_high_th-v_low_th
     mid_v = edge_v/2+v_low_th
     edge_df = transitions_df.where((transitions_df['event'] == 'rise')|(transitions_df['event'] == 'fall')).dropna()
-    for edge, data in edge_df.where(abs(edge_df[key]-mid_v)<=mid_v).groupby('event'):
-        
+    for edge, data in edge_df.where(abs(edge_df[key]-mid_v)<=mid_v).dropna().groupby('event'):
+        edge_sign = 1 if edge=='rise' else -1
         measurements_dict.update({f'{edge.capitalize()} Time': data.groupby('period_index').apply(lambda period: period['time'].max()-period['time'].min()).mean()})
-        measurements_dict.update({f'Slew Rate {edge.capitalize()}': measurements_dict[f'{edge.capitalize()} Time']/edge_v})
+        measurements_dict.update({f'Slew Rate {edge.capitalize()}': edge_v/measurements_dict[f'{edge.capitalize()} Time']*edge_sign})
     
     measurements_dict.update({
         'Overshoot': edge_df.where(edge_df['event']=='rise').dropna().groupby('period_index').max(numeric_only=True).mean()[key]-v_high,
