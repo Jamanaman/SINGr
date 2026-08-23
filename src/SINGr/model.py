@@ -3,7 +3,7 @@ from ecdtools import ibis as ecd #type:ignore
 from pydantic import BaseModel
 from pathlib import Path
 from typing import Literal, Optional
-import regex as re
+import re
 import os
 
 # supported RLGC File Sources
