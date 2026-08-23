@@ -1,5 +1,7 @@
 # SINGr: An ngSPICE SI Simulation and Analysis Tool for Automated Simulation and Optimisation Workflows
 
+**S**ignal **I**ntegrity **ng**SPICE Analyser or SINGr (like singer) for short
+
 This package is designed for the purpose of allowing one to specify arbitrary net topologies with modular structural components such as transmission line models, terminations, and behavioural models of components and then simulate them with a range of different workflows. 
 
 ## Features

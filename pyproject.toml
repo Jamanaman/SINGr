@@ -1,17 +1,18 @@
 [project]
 name = "SINGr"
 version="0.0.1dev1"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "numpy",
     "seaborn",
-    "InSpice",
+    "inspice>=1.7.0.6",
     "ecdtools>=0.7.0",
     "pybis2spice",
     "scipy",
     "kmeans1d",
     "pandas",
-    "Jinja2"
+    "Jinja2",
+    "pydantic>=2.13.4",
 ]
 maintainers = [
     {name = "Thomas Damjanovic"}
@@ -40,6 +41,7 @@ reportOperatorIssue = "information"
 [dependency-groups]
 docs = [
     "markupsafe>=3.0.3",
+    "recommonmark>=0.7.1",
     "shibuya>=2026.7.12",
     "sphinx>=8.1.3",
 ]
