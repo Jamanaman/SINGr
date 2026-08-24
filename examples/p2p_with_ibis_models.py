@@ -1,4 +1,4 @@
-from SINGr.singr import compose_and_run_simulation, analyse_simulation_results
+from SINGr.runner import compose_and_run_simulation, analyse_simulation_results
 from SINGr.composition import Composition, CommunicationNet
 from SINGr.model import IBISModel, CoupledTlineModel
 from pathlib import Path
