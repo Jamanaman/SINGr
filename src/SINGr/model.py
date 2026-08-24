@@ -1,3 +1,7 @@
+'''
+Module for generation of InSpice/ngSPICE compatible models from various types of inputs.
+'''
+
 from pybis2spice import subcircuit as sckt, circuit_builder as ckt_build, data_model as dm
 from ecdtools import ibis as ecd #type:ignore
 from pydantic import BaseModel
@@ -8,17 +12,52 @@ import os
 
 # supported RLGC File Sources
 _SOURCE = Literal['Zuken'] # TODO add support for openEMS to generate RLGC values
+_MODEL_TYPE = Literal['PIN', 'TLINE', ] # TODO add support for terminations 
 
-def build_model(model_type: str, **kwargs):
+def build_model(model_type: _MODEL_TYPE, **kwargs) -> Model|None:
+    '''
+    Generalised model building wrapper function for the purpose of generating direct from
+    configuration files. 
+
+    Parameters
+    ----------
+    model_type : _MODEL_TYPE
+        string name of model type to be generated
+
+    **kwargs: Dict
+        dictionary of keyword arguments which match one of the model generation functions
+
+    Returns
+    -------
+    Model|None
+        Generated Model object
+    '''
     if model_type == 'PIN':
         if not kwargs.get('ibis_file') is None:
             return IBISModel.build_model_from_file(**kwargs)
         
-    if model_type == 'TLINE':
+    elif model_type == 'TLINE':
         if not kwargs.get('file_name') is None:
             return CoupledTlineModel.build_model_from_file(**kwargs)
 
 class Model(BaseModel):
+    '''
+    Pydantic BaseModel object setting out the required components for a model to be imported into an ngSPICE simulation
+    and for additional information for the user.
+
+    Attributes
+    ----------
+    model_name: str
+        name of model to be generated
+    component_name: str
+        name of component ie product name or component type
+    subcircuit_card: str
+        .SUBCKT file directive as a single string
+    lib: Path
+        path to directory where subcircuit card is stored 
+    spice_model_name: str
+        name to be used directly for import into ngSPICE
+    '''
     model_name: str
     component_name: str
     subcircuit_card: str
@@ -30,6 +69,25 @@ class Model(BaseModel):
         raise NotImplementedError()
 
 class CoupledTlineModel(Model):
+    '''
+    Extension of Model object to implement reading in coupled transmission line model parameters from different sources
+    and using them to build a coupled multiconductor transmission line with the KSPICE models implemented in ngSPICE.
+    
+    Attributes
+    ----------
+    model_name: str
+        name of model to be generated
+    component_name: str
+        name of component ie product name or component type
+    subcircuit_card: str
+        .SUBCKT file directive as a single string
+    lib: Path
+        path to directory where subcircuit card is stored 
+    spice_model_name: str
+        name to be used directly for import into ngSPICE
+    num_lines: int
+        number of transmission lines
+    '''
     num_lines:int
     @classmethod
     def build_model_from_file(cls, file_name:str,  source:_SOURCE='Zuken', lib_path:str = '.') -> Model:
@@ -87,6 +145,24 @@ class CoupledTlineModel(Model):
             )
         
 class IBISModel(Model):  
+    '''
+    Extension of Model object to implement reading in IBIS files using ecdtools and pybis2SPICE and generating ngSPICE
+    subcircuit strings out of them.
+    
+    Attributes
+    ----------
+    model_name: str
+        name of model to be generated
+    component_name: str
+        name of component ie product name or component type
+    subcircuit_card: str
+        .SUBCKT file directive as a single string
+    lib: Path
+        path to directory where subcircuit card is stored 
+    spice_model_name: str
+        name to be used directly for import into ngSPICE
+    '''
+
     @classmethod
     def build_model_from_file(cls, model_name:str, component_name: str, ibis_file:str, io_type:sckt._IO_TYPE, corner:sckt._CORNER, stimulus:Optional[sckt._STIMULUS]='ALL', lib_path:Path|str = '.') -> Model:
         if stimulus == 'ALL' or stimulus is None: 

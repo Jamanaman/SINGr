@@ -32,7 +32,7 @@ autodoc_inherit_docstrings = True
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'shibuya'
-html_static_path = ['_static']
+html_static_path = ['source/_static']
 html_theme_options = {
   "accent_color": "grass",
 }
