@@ -1,32 +1,81 @@
-from . import topolib as tp, model
+'''
+Module comprised of Pydantic BaseModel \'Composition\' which
+enables one to compose an ngSPICE simulation to be run from
+a configuration.
+'''
+
 from pydantic import BaseModel
-from typing import List, Optional
-from InSpice.Spice.Simulator import Simulator
-from InSpice import Circuit
+from typing import List, Optional, Tuple
+from .analysis import _ANALYSES
+from .model import Model
 
 class Composition(BaseModel):
+    '''
+    Compositions are simulation recipes comprising of a structure to simulate, configured specifically
+    and a series of simulation and analysis workflows to perform on said structure. 
+
+    Attributes
+    ----------
+        name: str
+            name of the composition, used for identification
+        analyses: List[_ANALYSES]
+            a list of simulation and analysis workflows to run on the given net tree
+        net_tree: CommunicationNet
+            the structure to be simulated
+    '''
     name: str
-    inputs: List[str]
-    outputs: List[str]
-    topology: tp._TOPOLOGIES
-    tlines: List[str]
-    terminations: Optional[List[str]] = None
-    stimuli: List[str]
-    clock_frequencies: List[float]
+    analyses: List[_ANALYSES]
+    net_tree: CommunicationNet
 
-    def compose_simulation(self):
-        simulator = Simulator.factory()
-
-        IC_inputs = [model.build_model('PIN', ic_input, 'Input') for ic_input in self.inputs]
-        IC_outputs = [model.build_model('PIN', ic_output, 'Output', stimulus) for ic_output, stimulus in zip(self.outputs, self.stimuli)]
-        tline = model.build_model('TLine', self.tlines[0])
-
-        circ: Circuit = tp.build_p2p(IC_inputs, IC_outputs, tline)
-
-        simulator = Simulator.factory()
-        simulation = simulator.simulation(circ, temperature=25, nominal_temperature=25)
-        return simulation
-
+class CommunicationNet(BaseModel):
+    '''
+    The CommunicationNet is a structure intended to be used recursively with each net being built
+    around a transmission line. At each of the inputs of the transmission line, one can connect: 
     
+    - an input node which may either be a simple SPICE node name or may be a subcircuit model to connect to,
+    - and a termination which may either be in series with the input node and transmission line input or parallel
 
-    
+    At each of the outputs of the transmission line, one can connect: 
+
+    - an output node which may either be a simple SPICE node name, a subcircuit model to connect to or even another communication net,
+    - and a termination which may either be in series with the output node and transmission line output or parallel,
+
+    For all input nodes, one can also specify a number of configuration features including clock frequency, stimulus delay, logic levels, 
+    and stimulus definition.
+
+    The transmission line that connects these nodes must simply be another model which provides sufficient input and output nodes for all inputs
+    and outputs. If this is a model configurable with length such as a distributed RLC model, one can also specify the length of the transmission line.
+
+    Attributes
+    ----------
+        t_line_nodes_in: List[Model|str]
+            connections at input nodes
+        t_line_nodes_out: List[Model|CommunicationNet|str]
+            connections at output nodes
+        transmission_line: Model
+            transmission line model
+        l_tline_m: float
+            transmission line length
+        clock_frequencies_Hz: List[Optional[float]]
+            input stimulus clock frequencies
+        delays_s: List[Optional[float]]
+            stimulus delays in seconds
+        v_logic: List[Optional[Tuple[Optional[float], float]]]
+            logic levels (currently only 2)
+        stimuli: List[Optional[str|int]]
+            input stimuli corresponding to the input nodes
+        terminations_start: List[Optional[Model]]
+            terminations connected at the input nodes
+        terminations_end: List[Optional[Model]]
+            terminations connected at the output nodes
+    '''
+    t_line_nodes_in: List[Model|str]
+    t_line_nodes_out: List[Model|CommunicationNet|str]
+    transmission_line: Model
+    l_tline_m: float = 0
+    clock_frequencies_Hz: List[Optional[float]] = []
+    delays_s: List[Optional[float]] = []
+    v_logic: List[Optional[Tuple[Optional[float], float]]] = []
+    stimuli: List[Optional[str|int]] = []
+    terminations_start: List[Optional[Model]] = []
+    terminations_end: List[Optional[Model]] = []

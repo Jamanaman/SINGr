@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Report: {{analysis_title}}</title>
+</head>
+<body>
+    <h1>Simulation Composition Details</h1>
+    <table>
+    <tr>
+    {% for key in composition_metadata.keys() %}
+        <th scope="col">{{key}}</th>
+    {% endfor %}
+    </tr>
+    <tr>
+    {% for val in composition_metadata.values() %}
+        <td scope="row">{{key}}</th>
+    {% endfor %}
+    </tr>
+    </table>
+    <img class="graph" src='{{ graphic_path }}'>
+    <h1>{{analysis_title}} Results</h1>
+    <table>
+    <tr>
+    {% for key in results.keys() %}
+        <th scope="col">{{key}}</th>
+    {% endfor %}
+    </tr>
+    <tr>
+    {% for val in results.values() %}
+        <td scope="row">{{key}}</th>
+    {% endfor %}
+    </tr>
+    </table>
+</body>
+</html>
