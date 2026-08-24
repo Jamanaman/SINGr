@@ -1,10 +1,10 @@
 '''
-Library of different constructor functions which produce generic
-chip-to-chip communication circuits for analysis. 
+Module which implements functions to recurse through a CommunicationNet Structure and build a netlist
+using InSpice.
 '''
 
 from InSpice import Circuit
-from typing import List, Optional, Dict
+from typing import List, Dict
 import re
 from numpy.random import randint
 
