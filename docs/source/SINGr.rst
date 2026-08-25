@@ -6,7 +6,7 @@ Module contents
 
 SINGr is structured with the following submodules:
 
-* ``SINGr.singr``
+* ``SINGr.runner``
 
   * main high level submodule for users to run the fully automated features of the package after they have composed the simulation structures to be run through the workflows
 
@@ -102,10 +102,10 @@ SINGr.sim\_tools module
    :show-inheritance:
    :undoc-members:
 
-SINGr.singr module
-------------------
+SINGr.runner module
+-------------------
 
-.. automodule:: SINGr.singr
+.. automodule:: SINGr.runner
    :members:
    :show-inheritance:
    :undoc-members:

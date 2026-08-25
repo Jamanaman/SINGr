@@ -12,20 +12,14 @@ from .model import Model
 class Composition(BaseModel):
     '''
     Compositions are simulation recipes comprising of a structure to simulate, configured specifically
-    and a series of simulation and analysis workflows to perform on said structure. 
-
-    Attributes
-    ----------
-        name: str
-            name of the composition, used for identification
-        analyses: List[_ANALYSES]
-            a list of simulation and analysis workflows to run on the given net tree
-        net_tree: CommunicationNet
-            the structure to be simulated
+    and a series of simulation and analysis workflows to perform on said structure.
     '''
     name: str
+    '''name of the composition, used for identification'''
     analyses: List[_ANALYSES]
+    '''a list of simulation and analysis workflows to run on the given net tree'''
     net_tree: CommunicationNet
+    '''the structure to be simulated'''
 
 class CommunicationNet(BaseModel):
     '''
@@ -45,37 +39,24 @@ class CommunicationNet(BaseModel):
 
     The transmission line that connects these nodes must simply be another model which provides sufficient input and output nodes for all inputs
     and outputs. If this is a model configurable with length such as a distributed RLC model, one can also specify the length of the transmission line.
-
-    Attributes
-    ----------
-        t_line_nodes_in: List[Model|str]
-            connections at input nodes
-        t_line_nodes_out: List[Model|CommunicationNet|str]
-            connections at output nodes
-        transmission_line: Model
-            transmission line model
-        l_tline_m: float
-            transmission line length
-        clock_frequencies_Hz: List[Optional[float]]
-            input stimulus clock frequencies
-        delays_s: List[Optional[float]]
-            stimulus delays in seconds
-        v_logic: List[Optional[Tuple[Optional[float], float]]]
-            logic levels (currently only 2)
-        stimuli: List[Optional[str|int]]
-            input stimuli corresponding to the input nodes
-        terminations_start: List[Optional[Model]]
-            terminations connected at the input nodes
-        terminations_end: List[Optional[Model]]
-            terminations connected at the output nodes
     '''
     t_line_nodes_in: List[Model|str]
+    '''connections at input nodes'''
     t_line_nodes_out: List[Model|CommunicationNet|str]
+    '''connections at output nodes'''
     transmission_line: Model
+    '''transmission line model'''
     l_tline_m: float = 0
+    '''transmission line length'''
     clock_frequencies_Hz: List[Optional[float]] = []
+    '''input stimulus clock frequencies'''
     delays_s: List[Optional[float]] = []
+    '''stimulus delays in seconds'''
     v_logic: List[Optional[Tuple[Optional[float], float]]] = []
+    '''logic levels (currently only 2)'''
     stimuli: List[Optional[str|int]] = []
+    '''input stimuli corresponding to the input nodes'''
     terminations_start: List[Optional[Model]] = []
+    '''terminations connected at the input nodes'''
     terminations_end: List[Optional[Model]] = []
+    '''terminations connected at the output nodes'''

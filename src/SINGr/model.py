@@ -44,25 +44,17 @@ class Model(BaseModel):
     '''
     Pydantic BaseModel object setting out the required components for a model to be imported into an ngSPICE simulation
     and for additional information for the user.
-
-    Attributes
-    ----------
-    model_name: str
-        name of model to be generated
-    component_name: str
-        name of component ie product name or component type
-    subcircuit_card: str
-        .SUBCKT file directive as a single string
-    lib: Path
-        path to directory where subcircuit card is stored 
-    spice_model_name: str
-        name to be used directly for import into ngSPICE
     '''
     model_name: str
+    '''name of model to be generated'''
     component_name: str
+    '''name of component ie product name or component type'''
     subcircuit_card: str
+    '''.SUBCKT file directive as a single string'''
     lib: Path
+    '''path to directory where subcircuit card is stored'''
     spice_model_name: str
+    '''name to be used directly for import into ngSPICE'''
 
     @classmethod
     def build_model_from_file(cls, *args, **kwargs) -> Model:
@@ -72,23 +64,9 @@ class CoupledTlineModel(Model):
     '''
     Extension of Model object to implement reading in coupled transmission line model parameters from different sources
     and using them to build a coupled multiconductor transmission line with the KSPICE models implemented in ngSPICE.
-    
-    Attributes
-    ----------
-    model_name: str
-        name of model to be generated
-    component_name: str
-        name of component ie product name or component type
-    subcircuit_card: str
-        .SUBCKT file directive as a single string
-    lib: Path
-        path to directory where subcircuit card is stored 
-    spice_model_name: str
-        name to be used directly for import into ngSPICE
-    num_lines: int
-        number of transmission lines
     '''
     num_lines:int
+    '''number of transmission lines'''
     @classmethod
     def build_model_from_file(cls, file_name:str,  source:_SOURCE='Zuken', lib_path:str = '.') -> Model:
         vals = [[], [], [], []]
@@ -148,19 +126,6 @@ class IBISModel(Model):
     '''
     Extension of Model object to implement reading in IBIS files using ecdtools and pybis2SPICE and generating ngSPICE
     subcircuit strings out of them.
-    
-    Attributes
-    ----------
-    model_name: str
-        name of model to be generated
-    component_name: str
-        name of component ie product name or component type
-    subcircuit_card: str
-        .SUBCKT file directive as a single string
-    lib: Path
-        path to directory where subcircuit card is stored 
-    spice_model_name: str
-        name to be used directly for import into ngSPICE
     '''
 
     @classmethod
