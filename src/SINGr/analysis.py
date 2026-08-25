@@ -17,6 +17,9 @@ _ANALYSES = Literal['EYE', 'WAVEFORM']
 sns.set_theme("paper", "whitegrid","tab20")
 
 def generate_report():
+    '''
+    [WIP] Target v0.0.2
+    '''
     pass
 
 def perform_eye_analysis(
