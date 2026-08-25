@@ -27,6 +27,9 @@ description = "ngSPICE Based Signal-Integrity Simulator and Analyser."
 requires = ["uv", "uv_build"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+module-name = "SINGr"
+
 [[tool.uv.index]]
 name = "testpypi"
 url = "https://test.pypi.org/simple/"
