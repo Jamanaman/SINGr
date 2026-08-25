@@ -187,4 +187,9 @@ class IBISModel(Model):
             subcircuit_card_path = Path(lib_path, f'{model_name}_{component_name}_{corner}_{io_type}_{stimulus}.lib')
         spice_str = ckt_build.generate_spice_model_file(io_type, 'ngSPICE', model, corner, truncation=0.01, stimulus=stimulus, output_filepath=subcircuit_card_path)
 
-        return IBISModel(model_name=model.model_name, component_name=component_name, subcircuit_card=spice_str, lib=subcircuit_card_path)
+        return IBISModel(model_name=model.model_name, component_name=component_name, subcircuit_card=spice_str, lib=subcircuit_card_path, spice_model_name=spice_model_name)
+
+class TerminationModel(Model):
+    @classmethod
+    def build_model_from_file(cls, *args, **kwargs) -> Model:
+        raise NotImplementedError
