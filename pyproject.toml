@@ -1,6 +1,6 @@
 [project]
 name = "SINGr"
-version="0.0.1dev1"
+version="0.0.1.dev2"
 requires-python = ">=3.12"
 dependencies = [
     "numpy",
@@ -52,6 +52,7 @@ reportOperatorIssue = "information"
 
 [dependency-groups]
 docs = [
+    "autodoc-pydantic>=2.2.0",
     "markupsafe>=3.0.3",
     "shibuya>=2026.7.12",
     "sphinx>=8.1.3",
