@@ -105,7 +105,7 @@ def generate_eye_histogram(
                 ).min()
             )
     t_mid = (max(t_left)+min(t_right))/2
-    hist_measurements.update({'t_mid': t_mid})
+    hist_measurements.update({'Time Eye Center': t_mid})
 
     # using the time +/-2.5% about the centre of the central eye estimate voltage levels
     dividers = [chunk_df[key].min()]
@@ -126,13 +126,13 @@ def generate_eye_histogram(
                 abs(chunk_df['chunk_time']-t_mid) < t_tol
             ).dropna()
         
-        hist_measurements.update({f'logic_{i}':division_df[key].mean()})
+        hist_measurements.update({f'{i} Level':division_df[key].mean()})
         mins.append(division_df[key].min())
         maxes.append(division_df[key].max())
         means.append(division_df[key].mean())
         if i > 0:
-            hist_measurements.update({f'eye_height_{i-1}': mins[i]-maxes[i-1]})
-            hist_measurements.update({f'eye_amplitude_{i-1}': means[i]-means[i-1]})
+            hist_measurements.update({f'Eye Height {i-1}': mins[i]-maxes[i-1]})
+            hist_measurements.update({f'Eye Amplitude {i-1}': means[i]-means[i-1]})
 
     for i in range(1, logic_levels):
         midpoint_v = (means[i-1]+means[i])/2
@@ -146,7 +146,7 @@ def generate_eye_histogram(
         t_right = cluster_df[key].where(
                 cluster_df['cluster'] == 1
                 ).min()
-        hist_measurements.update({f'eye_width_{i-1}':t_right-t_left})
+        hist_measurements.update({f'Eye Width {i-1}':t_right-t_left})
 
     return chunk_df, hist_measurements
 
