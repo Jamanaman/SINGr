@@ -49,4 +49,4 @@ if __name__ == '__main__':
     )
 
     results = compose_and_run_simulation(comp)
-    analyse_simulation_results(comp, results)
+    analyse_simulation_results(comp, results, visualise=True)
