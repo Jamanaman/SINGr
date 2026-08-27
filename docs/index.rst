@@ -17,3 +17,4 @@ to manually implement parameter sweeps and put in the effort to configure specif
    :caption: Contents:
 
    source/modules
+   source/examples
