@@ -26,9 +26,28 @@ def generate_eye_histogram(
         transitions_df: pd.DataFrame, key:str, 
         statistical_jitter_s:float, signaling:str = 'NRZ'
         ):
-    '''
+    '''    
     Generate 2d histogram to be visualised as the eye diagram and apply any statistical jitter to it.
-    Eye features will also be measured.
+    Eye features will also be measured. 
+    
+    Note The 2D histogram is not currently output for plotting in preference of the overlay of 
+    all voltage traces.
+
+    Eye measurements are performed using methods detailed in: 
+    
+    [1] Jargon, J. and Cheron, J. (2021), A Robust Algorithm for PAM4 Eye-Diagram Analysis, Proceedings of the Asia Pacific Microwave Conference, Brisbane, AU, [online], https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=932331 (Accessed June 29, 2026) 
+
+    [2] Jargon, Jeffrey & Wang, Chih-Ming Jack & Hale, Paul. (2008). A Robust Algorithm for Eye-Diagram Analysis. Journal of Lightwave Technology. 26. 3592-3600. [online], https://ieeexplore.ieee.org/document/4758639 (Accessed June 29, 2026)
+
+    The algorithm works as follows:
+        - k-means clustering performed to make a first guess of logic levels
+        - least mean of squares method used to estimate the mode of each cluster to more accurately estimate the logic levels
+        - take midpoints between estimated logic levels to estimate crossing voltages
+        - use k-means clustering to group voltages about transition times to find the mean crossing times at the right and left of the eye
+        - take the midpoint of crossing times to estimate the eye center time
+        - use the voltages occuring central 5% of the eye in time to calculate the logic levels using estimated voltage levels of the eye 
+        - calculate the eye height and amplitude using the minimum and mean distances between logic levels respectively
+        - use more accurate estimates of logic levels to find the crossing voltages and measure the eye width at these voltages
 
     Usage Note: Statistical Jitter must be given in terms of the standard deviation of jitter to be 
     applied to the distribution. If a maximum jitter is known, treat it as a 3 sigma value and divide 
@@ -73,7 +92,7 @@ def generate_eye_histogram(
     clusters, centers = kmeans1d.cluster(chunk_df[key], logic_levels)
     chunk_df['cluster'] = clusters
 
-    # estimate voltage levels by making shorth estimates of the mean from the clustered observations
+    # estimate voltage levels by making least mean of squares estimates of the mean from the clustered observations
     lms_estimates = []
     for grp, data in chunk_df.groupby('cluster'):
         observations = data[key].sort_values(ignore_index=True)
@@ -105,7 +124,7 @@ def generate_eye_histogram(
                 ).min()
             )
     t_mid = (max(t_left)+min(t_right))/2
-    hist_measurements.update({'t_mid': t_mid})
+    hist_measurements.update({'Time Eye Center': t_mid})
 
     # using the time +/-2.5% about the centre of the central eye estimate voltage levels
     dividers = [chunk_df[key].min()]
@@ -126,13 +145,13 @@ def generate_eye_histogram(
                 abs(chunk_df['chunk_time']-t_mid) < t_tol
             ).dropna()
         
-        hist_measurements.update({f'logic_{i}':division_df[key].mean()})
+        hist_measurements.update({f'{i} Level':division_df[key].mean()})
         mins.append(division_df[key].min())
         maxes.append(division_df[key].max())
         means.append(division_df[key].mean())
         if i > 0:
-            hist_measurements.update({f'eye_height_{i-1}': mins[i]-maxes[i-1]})
-            hist_measurements.update({f'eye_amplitude_{i-1}': means[i]-means[i-1]})
+            hist_measurements.update({f'Eye Height {i-1}': mins[i]-maxes[i-1]})
+            hist_measurements.update({f'Eye Amplitude {i-1}': means[i]-means[i-1]})
 
     for i in range(1, logic_levels):
         midpoint_v = (means[i-1]+means[i])/2
@@ -146,9 +165,9 @@ def generate_eye_histogram(
         t_right = cluster_df[key].where(
                 cluster_df['cluster'] == 1
                 ).min()
-        hist_measurements.update({f'eye_width_{i-1}':t_right-t_left})
+        hist_measurements.update({f'Eye Width {i-1}':t_right-t_left})
 
     return chunk_df, hist_measurements
 
 def apply_mask(mask, eye):
-    pass
+    raise NotImplementedError()

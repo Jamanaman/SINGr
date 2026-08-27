@@ -1318,7 +1318,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "ecdtools", specifier = ">=0.7.0" },
-    { name = "inspice", specifier = ">=1.7.0.6" },
+    { name = "inspice", specifier = ">=1.7.0.5" },
     { name = "jinja2" },
     { name = "kmeans1d" },
     { name = "numpy" },

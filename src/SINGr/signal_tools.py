@@ -9,16 +9,16 @@ import pandas as pd
 
 def walk_forward_to_logic_level(
         df:pd.DataFrame, t_transition_detected: float, 
-        logic_level_v:float, v_tol: float
+        logic_level_v:float, v_tol: float, key: str
         ) -> float:
     '''
     Walks from transition being detected to the next logic level.
     '''
 
-    df_walk = df.where(df['time']>t_transition_detected).dropna()
-    for row in df_walk.itertuples():
-        if isclose(row[1], logic_level_v, atol=v_tol):
-            return row[2]
+    df_walk = df.where(df['time']>=t_transition_detected).dropna()
+    for row, data in df_walk.iterrows():
+        if isclose(data[key], logic_level_v, atol=v_tol):
+            return data['time']
     else:
         raise Exception()
         
@@ -31,6 +31,10 @@ def classify_period(
     Classifies time series in single clock period as one of 'high', 'low',
     'rise', 'fall' or None if no valid event can be classified due to the signal
     staying mostly in between the logic thresholds.
+
+    Distinguishes between rise/fall and high/low based on if the mean slope is sufficient to 
+    have achieved a full transition within the period and where the end voltage sits for the period. 
+
     '''
 
     window_length = 10
@@ -69,12 +73,19 @@ def capture_transitions(
 
     Returns a resampled and fully classified time series dataframe with equidistant time
     samples at 1000 samples per period. 
+
+    Triggering is done as follows:
+        - by detecting a logic transition with a sufficient slope to suggest that it is not simply common mode drift
+        - once a transition is detected, it is observed if a valid logic level is maintained for at least a full clock period
+        - the first detected transition is then excluded from the first captured period and all subsequent periods are classified
     
     TODO: If a datastream is provided,
     the data will be classified by matching with the datastream. 
 
     TODO: Implement parallel option as this is completely parallelisable after triggering 
     has occurred. 
+
+    TODO: Implement fallback triggering if no triggering is achieved.
     '''
 
     v_high_th = v_low+(v_high-v_low)*threshold_pct
@@ -96,7 +107,7 @@ def capture_transitions(
     for i in range(1, len(df_smoothed.index)):
         if triggered:
             break
-        if not hold:
+        elif not hold:
             # Check to see if signal deviates outside of logic level
             if df_smoothed[key][i] - df_smoothed[key][i-1] < -min_transition_slope and df_smoothed[key][i] < v_high_th:
                 hold = True
@@ -110,18 +121,21 @@ def capture_transitions(
                 continue
         else:
             # Check to see if signal has completed a transition from one level to the next
-            is_high_to_low = first_edge_rising and df[key][i] < df[key][i-1] and df[key][i] < v_low_th
-            is_low_to_high = not first_edge_rising and df[key][i] > df[key] [i-1] and df[key][i] > v_high_th
+            is_high_to_low = first_edge_rising and df_resampled[key][i] < df_resampled[key][i-1] and df_resampled[key][i] < v_low_th
+            is_low_to_high = not first_edge_rising and df_resampled[key][i] > df_resampled[key][i-1] and df_resampled[key][i] > v_high_th
             if is_high_to_low or is_low_to_high:
-                if t_transition + df['time'][i] >= clock_period:
+                if t_transition + df_resampled['time'][i] >= clock_period:
                     triggered = True
-                    t_transition = walk_forward_to_logic_level(
-                        df, 
-                        t_transition, 
-                        v_low if is_high_to_low else v_high, 
-                        v_high*0.01
-                        )
-                    break
+                    try:
+                        t_transition = walk_forward_to_logic_level(
+                            df_resampled, t_transition, 
+                            v_low if is_high_to_low else v_high, 
+                            v_high*0.01, key
+                            )
+                        break
+                    except:
+                        triggered = False
+                        continue
                 else:
                     hold = False
     if not triggered:

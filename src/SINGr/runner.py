@@ -87,28 +87,56 @@ def analyse_simulation_results(
         changes the configuration of waveform analysis
     '''
     results_df = pd.DataFrame()
-    results_df['pin_out_0_0'] = pd.Series(results['pin_out_0_0'], dtype=np.float64, name='pin_out_0_0')
     results_df['time'] = pd.Series(results.time, dtype=np.float64, name='time')
     if "EYE" in composition.analyses:
+        config = {
+            'key': 'pin_out_0_0',
+            'clock_frequency': composition.net_tree.clock_frequencies_Hz[0],
+            'v_high': composition.net_tree.v_logic[0][1],
+            'v_low': composition.net_tree.v_logic[0][0],
+            'threshold_pct': 0.9,
+            'statistical_jitter_s': 0,
+            'datastream': None,
+            'visualise': True,
+            'output_report': False 
+        }
+        config.update(eye_config)
+        if not results_df.get(config['key']):
+            results_df[config['key']] = pd.Series(results[config['key']], dtype=np.float64, name=config['key'])
         perform_eye_analysis(
             results_df, 
-            'pin_out_0_0', 
-            composition.net_tree.clock_frequencies_Hz[0],
-            composition.net_tree.v_logic[0][1],
-            composition.net_tree.v_logic[0][0],
-            0.9, 
-            0,
-            visualise=visualise,
-            output_report=output_report
+            config['key'],
+            config['clock_frequency'],
+            config['v_high'],
+            config['v_low'],
+            config['threshold_pct'],
+            config['statistical_jitter_s'],
+            config['datastream'],
+            config['visualise'], 
+            config['output_report']
             )
     if "WAVEFORM" in composition.analyses:
+        config = {
+            'key': 'pin_out_0_0',
+            'clock_frequency': composition.net_tree.clock_frequencies_Hz[0],
+            'v_high': composition.net_tree.v_logic[0][1],
+            'v_low': composition.net_tree.v_logic[0][0],
+            'threshold_pct': 0.9,
+            'datastream': None,
+            'visualise': True,
+            'output_report': False 
+        }
+        config.update(waveform_config)
+        if results_df.get(config['key']) is None:
+            results_df[config['key']] = pd.Series(results[config['key']], dtype=np.float64, name=config['key'])
         perform_waveform_analysis(
-            results_df,
-            'pin_out_0_0', 
-            composition.net_tree.clock_frequencies_Hz[0],
-            composition.net_tree.v_logic[0][1],
-            composition.net_tree.v_logic[0][0],
-            0.9,
-            visualise=visualise,
-            output_report=output_report
-        )
+            results_df, 
+            config['key'],
+            config['clock_frequency'],
+            config['v_high'],
+            config['v_low'],
+            config['threshold_pct'],
+            config['datastream'],
+            config['visualise'], 
+            config['output_report']
+            )

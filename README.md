@@ -24,7 +24,7 @@ Developers can contribute to the tool by forking the repository and submitting p
 ## References
 This tool is built off of pyBIS2PICE (https://github.com/Jamanaman/pybis2spice) to translate IBIS Models that are used in SI simulations, ecdtools which allows one to parse and process ibis files, and InSpice as the interface into ngSPICE. 
 
-Eye Diagram analysis was implemented using a PAM4 Eye-Diagram Analysis algorithm [1] using Least Median of Squares mode estimation instead of shorth mode estimation [2].
+Eye Diagram analysis was implemented using a PAM4 Eye-Diagram Analysis algorithm [1] using Least Mean of Squares mode estimation instead of shorth mode estimation [2].
 
 [1] Jargon, J. and Cheron, J. (2021), A Robust Algorithm for PAM4 Eye-Diagram Analysis, Proceedings of the Asia Pacific Microwave Conference, Brisbane, AU, [online], https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=932331 (Accessed June 29, 2026) 
 
