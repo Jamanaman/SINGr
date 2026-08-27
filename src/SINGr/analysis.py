@@ -26,7 +26,7 @@ def perform_eye_analysis(
         df: pd.DataFrame, key:str, 
         clock_frequency:float, v_high:float, 
         v_low:float, threshold_pct:float, 
-        statistical_jitter_s: float, datastream: Optional[List[int]]=None, 
+        statistical_jitter_s: float=0, datastream: Optional[List[int]]=None, 
         visualise:bool=False, output_report:bool=True
         ):
     '''
@@ -74,6 +74,7 @@ def perform_eye_analysis(
         hist_measurements = {key: f'{val:.3E}' for key, val in hist_measurements.items()}
         if visualise:
             plt.show()
+        print('\n'.join([f'|{key}: {val}|' for key, val in hist_measurements.items()]))
 
 def perform_waveform_analysis(
         df: pd.DataFrame, key:str,
@@ -125,3 +126,4 @@ def perform_waveform_analysis(
         transition_features = {key: f'{val:.3E}' for key, val in transition_features.items()}
         if visualise:
             plt.show()
+        print('\n'.join([f'|{key}: {val}|' for key, val in transition_features.items()]))
