@@ -31,6 +31,10 @@ def classify_period(
     Classifies time series in single clock period as one of 'high', 'low',
     'rise', 'fall' or None if no valid event can be classified due to the signal
     staying mostly in between the logic thresholds.
+
+    Distinguishes between rise/fall and high/low based on if the mean slope is sufficient to 
+    have achieved a full transition within the period and where the end voltage sits for the period. 
+
     '''
 
     window_length = 10
@@ -69,12 +73,19 @@ def capture_transitions(
 
     Returns a resampled and fully classified time series dataframe with equidistant time
     samples at 1000 samples per period. 
+
+    Triggering is done as follows:
+        - by detecting a logic transition with a sufficient slope to suggest that it is not simply common mode drift
+        - once a transition is detected, it is observed if a valid logic level is maintained for at least a full clock period
+        - the first detected transition is then excluded from the first captured period and all subsequent periods are classified
     
     TODO: If a datastream is provided,
     the data will be classified by matching with the datastream. 
 
     TODO: Implement parallel option as this is completely parallelisable after triggering 
     has occurred. 
+
+    TODO: Implement fallback triggering if no triggering is achieved.
     '''
 
     v_high_th = v_low+(v_high-v_low)*threshold_pct

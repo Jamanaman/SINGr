@@ -26,9 +26,28 @@ def generate_eye_histogram(
         transitions_df: pd.DataFrame, key:str, 
         statistical_jitter_s:float, signaling:str = 'NRZ'
         ):
-    '''
+    '''    
     Generate 2d histogram to be visualised as the eye diagram and apply any statistical jitter to it.
-    Eye features will also be measured.
+    Eye features will also be measured. 
+    
+    Note The 2D histogram is not currently output for plotting in preference of the overlay of 
+    all voltage traces.
+
+    Eye measurements are performed using methods detailed in: 
+    
+    [1] Jargon, J. and Cheron, J. (2021), A Robust Algorithm for PAM4 Eye-Diagram Analysis, Proceedings of the Asia Pacific Microwave Conference, Brisbane, AU, [online], https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=932331 (Accessed June 29, 2026) 
+
+    [2] Jargon, Jeffrey & Wang, Chih-Ming Jack & Hale, Paul. (2008). A Robust Algorithm for Eye-Diagram Analysis. Journal of Lightwave Technology. 26. 3592-3600. [online], https://ieeexplore.ieee.org/document/4758639 (Accessed June 29, 2026)
+
+    The algorithm works as follows:
+        - k-means clustering performed to make a first guess of logic levels
+        - least mean of squares method used to estimate the mode of each cluster to more accurately estimate the logic levels
+        - take midpoints between estimated logic levels to estimate crossing voltages
+        - use k-means clustering to group voltages about transition times to find the mean crossing times at the right and left of the eye
+        - take the midpoint of crossing times to estimate the eye center time
+        - use the voltages occuring central 5% of the eye in time to calculate the logic levels using estimated voltage levels of the eye 
+        - calculate the eye height and amplitude using the minimum and mean distances between logic levels respectively
+        - use more accurate estimates of logic levels to find the crossing voltages and measure the eye width at these voltages
 
     Usage Note: Statistical Jitter must be given in terms of the standard deviation of jitter to be 
     applied to the distribution. If a maximum jitter is known, treat it as a 3 sigma value and divide 
@@ -73,7 +92,7 @@ def generate_eye_histogram(
     clusters, centers = kmeans1d.cluster(chunk_df[key], logic_levels)
     chunk_df['cluster'] = clusters
 
-    # estimate voltage levels by making shorth estimates of the mean from the clustered observations
+    # estimate voltage levels by making least mean of squares estimates of the mean from the clustered observations
     lms_estimates = []
     for grp, data in chunk_df.groupby('cluster'):
         observations = data[key].sort_values(ignore_index=True)
@@ -151,4 +170,4 @@ def generate_eye_histogram(
     return chunk_df, hist_measurements
 
 def apply_mask(mask, eye):
-    pass
+    raise NotImplementedError()
