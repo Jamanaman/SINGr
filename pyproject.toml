@@ -5,7 +5,7 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy",
     "seaborn",
-    "inspice>=1.7.0.6",
+    "inspice>=1.7.0.5",
     "ecdtools>=0.7.0",
     "pybis2spice",
     "scipy",
