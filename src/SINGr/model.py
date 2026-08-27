@@ -107,7 +107,10 @@ class CoupledTlineModel(Model):
             dim = len(values)
             for col in range(dim):
                 for row in range(col, dim):
-                    property_vals += str(values[row][col]) + ' '
+                    if row == col and property == 'R':
+                        property_vals += str(1.0 if values[row][col] == 0.0 else [row][col]) + ' '
+                    else:
+                        property_vals += str(values[row][col]) + ' '
             property_vals += ' '
             _tline_str += property_vals
         _tline_str = _tline_str + ' \n'
