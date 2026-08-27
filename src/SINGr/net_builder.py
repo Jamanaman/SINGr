@@ -104,8 +104,8 @@ def traverse_net_tree_and_build(net_tree: CommunicationNet, tree_level:int = 0, 
                 instantiate_subckt_with_instance_params(circ, node_in, [name_node_in, f'trig_{tree_level}_{idx}'], f'sender_{tree_level}_{idx}')
             else:
                 instantiate_subckt_with_instance_params(circ, node_in, [name_node_in], f'sender_{tree_level}_{idx}')
-            if not series_termination:
-                tline_ins.append(name_node_in)
+        if not series_termination:
+            tline_ins.append(name_node_in)
 
     # Output nodes
     tline_outs = []
@@ -142,6 +142,7 @@ def traverse_net_tree_and_build(net_tree: CommunicationNet, tree_level:int = 0, 
             instantiate_subckt_with_instance_params(circ, node_out, [name_node_out], f'receiver_{tree_level}_{idx}')
         # if node is another tree then traverse deeper and recurse back up
         elif type(node_out) is CommunicationNet:
+            node_out.t_line_nodes_in[0] = str(name_node_out)
             circ = traverse_net_tree_and_build(node_out, tree_level+1, circ)
         
         if not series_termination:
@@ -152,7 +153,7 @@ def traverse_net_tree_and_build(net_tree: CommunicationNet, tree_level:int = 0, 
     # Add transmission line model
     circ.include(net_tree.transmission_line.lib)
     circ.CoupledMulticonductorLine(
-        f'TLINE', *tline_outs, circ.gnd, 
+        f'TLINE_{tree_level}', *tline_outs, circ.gnd, 
         *tline_ins, circ.gnd, length=net_tree.l_tline_m, 
         model=net_tree.transmission_line.model_name
         )
