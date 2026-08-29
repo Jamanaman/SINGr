@@ -168,6 +168,14 @@ def characterise_transitions(
     slew rates, settling time, overshoot and undershoot. Mean values across the whole
     dataset are given.
 
+    Measurement Definitions:
+
+        - Rise/Fall Times: Time between 90%/10% of the specified voltage range
+        - Slew Rates: Linearised Slew of Rise and Fall time segments
+        - Overshoot: Mean amplitude across all captured transitions of overshoot above logic high level
+        - Undershoot: Mean amplitude across all captured transitions of overshoot below logic low level
+        - Settling Time: Mean across all captured transitions where voltage settles to within the specified logic level +/- threshold
+
     TODO: Potentially add preshoot analysis and ringing analysis. 
     '''
     
