@@ -142,7 +142,7 @@ def capture_transitions(
         raise Exception()
 
     # take signal from half a clock period before the transition
-    df_trig = df_resampled.where(df_resampled['time']>=t_transition-clock_period).dropna(ignore_index=True)
+    df_trig = df_resampled.where(df_resampled['time']>=t_transition-clock_period/2).dropna(ignore_index=True)
     # rezero the time of the data signal from the triggered point
     df_trig['time'] = df_trig['time']-df_trig['time'][0]
     df_classified = pd.DataFrame()
