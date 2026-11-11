@@ -8,6 +8,7 @@ Implemented analyses include:
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib.patches import FancyArrowPatch
 from typing import List, Optional, Literal
 
 from .signal_tools import capture_transitions, characterise_transitions
@@ -78,14 +79,44 @@ def perform_eye_analysis(
         # plot results
         ax = sns.lineplot(chunk_df, x='chunk_time_scaled', y=key, units='sequence', estimator=None, alpha=0.2, label=None, color="tab:orange")
         ax.set_title(f'Eye Diagram {key.capitalize()}')
-        ax.set_xlabel('Volts (V)')
-        # TODO time prefix for key for easier legibility
-        ax.set_ylabel('Time (s)')
-        ax.hlines([v_low, v_high], xmin=0, xmax=chunk_df['chunk_time'].max(), linestyles='dashed', label='Expected Voltage Levels', colors='r')
-        ax.fill_between([chunk_df['chunk_time'].min(), chunk_df['chunk_time'].max()], v_low+threshold_dist, v_low-threshold_dist, alpha=0.2, color='r')
-        ax.fill_between([chunk_df['chunk_time'].min(), chunk_df['chunk_time'].max()], v_high+threshold_dist, v_high-threshold_dist, alpha=0.2, color='r')
+        ax.set_ylabel('Volts (V)')
+        ax.set_xlabel(f'Time ({prefix}s)')
+        ax.hlines([v_low, v_high], xmin=0, xmax=chunk_df['chunk_time_scaled'].max(), linestyles='dashed', label='Expected Voltage Levels', colors='r')
+        ax.fill_between([chunk_df['chunk_time_scaled'].min(), chunk_df['chunk_time_scaled'].max()], v_low+threshold_dist, v_low-threshold_dist, alpha=0.2, color='r')
+        ax.fill_between([chunk_df['chunk_time_scaled'].min(), chunk_df['chunk_time_scaled'].max()], v_high+threshold_dist, v_high-threshold_dist, alpha=0.2, color='r')
+        ax.set_xlim(chunk_df['chunk_time_scaled'].min(), chunk_df['chunk_time_scaled'].max())
+
+        # annotate plot with measurements TODO
+        for key, value in hist_measurements.items():
+            if 'Level' in key:
+                lab = f'{key}: {value:.3f} V'
+                ax.axhline(y=value, label=lab, color='b')
+            elif 'Height' in key:
+                lab = f'{key}: {value:.3f} V'
+                eye_idx = key.split(' ')[-1]
+                x = hist_measurements['Time Eye Center']/10**tspan_mag
+                ax.add_patch(FancyArrowPatch(
+                    posA=(x, hist_measurements[f'Eye Bottom {eye_idx}']), 
+                    posB=(x, hist_measurements[f'Eye Top {eye_idx}']), 
+                    shrinkA=0, shrinkB=0, arrowstyle='|-|',
+                    alpha=0.75, ls='--', label=lab,
+                    color='seagreen', lw=2, mutation_scale=3
+                    ))
+            elif 'Width' in key:
+                lab = f'{key}: {value/10**tspan_mag:.3f} {prefix}s'
+                eye_idx = key.split(' ')[-1]
+                left = hist_measurements[f'Eye Left {eye_idx}']/10**tspan_mag
+                right = hist_measurements[f'Eye Right {eye_idx}']/10**tspan_mag
+                bottom = hist_measurements[f'Eye Bottom {eye_idx}']
+                top = hist_measurements[f'Eye Top {eye_idx}']
+                mid = bottom + (top-bottom)/2
+                ax.add_patch(FancyArrowPatch(
+                    posA=(left, mid), posB=(right, mid), 
+                    shrinkA=0, shrinkB=0, arrowstyle='|-|', 
+                    alpha=0.75, ls='--', label=lab,
+                    color='seagreen', lw=2, mutation_scale=3
+                    ))
         ax.legend()
-        ax.set_xlim(chunk_df['chunk_time'].min(), chunk_df['chunk_time'].max())
         hist_measurements = {key: f'{val:.3E}' for key, val in hist_measurements.items()}
         if visualise:
             plt.show()
@@ -145,6 +176,7 @@ def perform_waveform_analysis(
         grid.figure.suptitle(f'Waveform Analysis {key.capitalize()}')
         grid.set_axis_labels(f'Time ({prefix}s)', 'Voltage (V)')
         transition_features = {key: f'{val:.3E}' for key, val in transition_features.items()}
+        # TODO annotate with transition features
         if visualise:
             plt.show()
         print('\n'.join([f'|{key}: {val}|' for key, val in transition_features.items()]))
