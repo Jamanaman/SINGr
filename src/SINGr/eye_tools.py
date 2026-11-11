@@ -9,7 +9,7 @@ from scipy.stats import norm
 import kmeans1d
 import pandas as pd 
 
-def chunk_data_for_eye(transitions_df: pd.DataFrame, chunk_periods:int=3):
+def chunk_data_for_eye(transitions_df: pd.DataFrame, chunk_periods:int=2):
     '''
     Chunk the available data into consecutive sequences which can be identified as valid events.
     '''
@@ -151,21 +151,25 @@ def generate_eye_histogram(
         means.append(division_df[key].mean())
         if i > 0:
             hist_measurements.update({f'Eye Height {i-1}': mins[i]-maxes[i-1]})
+            hist_measurements.update({f'Eye Bottom {i-1}': mins[i]})
+            hist_measurements.update({f'Eye Top {i-1}': maxes[i-1]})
             hist_measurements.update({f'Eye Amplitude {i-1}': means[i]-means[i-1]})
 
     for i in range(1, logic_levels):
         midpoint_v = (means[i-1]+means[i])/2
         tol_v = (means[i]-means[i-1])*0.01
         cluster_df = chunk_df.where(abs(chunk_df[key]-midpoint_v) < tol_v).dropna()
-        clusters, centers = kmeans1d.cluster(cluster_df[key], 2)
+        clusters, centers = kmeans1d.cluster(cluster_df['chunk_time'], 2)
         cluster_df['cluster'] = clusters
-        t_left = cluster_df[key].where(
+        t_left = cluster_df['chunk_time'].where(
                 cluster_df['cluster'] == 0
                 ).max()
-        t_right = cluster_df[key].where(
+        t_right = cluster_df['chunk_time'].where(
                 cluster_df['cluster'] == 1
                 ).min()
         hist_measurements.update({f'Eye Width {i-1}':t_right-t_left})
+        hist_measurements.update({f'Eye Right {i-1}':t_right})
+        hist_measurements.update({f'Eye Left {i-1}':t_left})
 
     return chunk_df, hist_measurements
 
