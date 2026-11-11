@@ -15,6 +15,12 @@ from .eye_tools import generate_eye_histogram
 
 _ANALYSES = Literal['EYE', 'WAVEFORM']
 sns.set_theme("paper", "whitegrid","tab20")
+_SI_MAG_PREFIXES = {
+    0: '', 3: 'k', 6: 'M',
+    9: 'G', 12: 'T', -3: 'm', 
+    -6: '\u00B5', -9: 'n', -12: 'p',
+    -15: 'f'
+    }
 
 def generate_report():
     '''
@@ -60,8 +66,17 @@ def perform_eye_analysis(
 
     chunk_df, hist_measurements = generate_eye_histogram(transitions_df, key, statistical_jitter_s)
     if visualise or output_report:
+        # find distance from logic level to threshold value
         threshold_dist = (v_high-v_low)*(1-threshold_pct)
-        ax = sns.lineplot(chunk_df, x='chunk_time', y=key, units='sequence', estimator=None, alpha=0.2, label=None, color="tab:orange")
+        
+        # Find logical SI unit prefix for timescale and scale appropriately 
+        tspan = chunk_df.chunk_time.max()-chunk_df.chunk_time.min()
+        tspan_mag = int(f'{tspan:.0E}'.split('E')[1])
+        prefix = _SI_MAG_PREFIXES[tspan_mag]
+        chunk_df['chunk_time_scaled'] = chunk_df['chunk_time']/10**tspan_mag
+
+        # plot results
+        ax = sns.lineplot(chunk_df, x='chunk_time_scaled', y=key, units='sequence', estimator=None, alpha=0.2, label=None, color="tab:orange")
         ax.set_title(f'Eye Diagram {key.capitalize()}')
         ax.set_xlabel('Volts (V)')
         # TODO time prefix for key for easier legibility
@@ -115,14 +130,20 @@ def perform_waveform_analysis(
     transition_features = characterise_transitions(transitions_df, key, v_high, v_low, threshold_pct)
 
     if visualise or output_report:
+
+        # Find logical SI unit prefix for timescale and scale appropriately 
+        tspan = transitions_df['period_time'].max()-transitions_df['period_time'].min()
+        tspan_mag = int(f'{tspan:.0E}'.split('E')[1])
+        prefix = _SI_MAG_PREFIXES[tspan_mag]
+        transitions_df['period_time_scaled'] = transitions_df['period_time']/10**tspan_mag
         
         grid = sns.relplot(
-            transitions_df, y=key, x='period_time', col='event', 
+            transitions_df, y=key, x='period_time_scaled', col='event', 
             kind='line', estimator=None, units='period_index', 
             alpha=0.33, col_wrap=2, col_order=['rise', 'fall', 'high', 'low']
             )
         grid.figure.suptitle(f'Waveform Analysis {key.capitalize()}')
-        grid.set_axis_labels('Time (s)', 'Voltage (V)')
+        grid.set_axis_labels(f'Time ({prefix}s)', 'Voltage (V)')
         transition_features = {key: f'{val:.3E}' for key, val in transition_features.items()}
         if visualise:
             plt.show()
