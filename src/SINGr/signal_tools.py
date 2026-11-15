@@ -39,25 +39,65 @@ def classify_period(
 
     window_length = 10
     derivative_threshold = min_transition_slope*window_length
-    mean_diff_df = df.diff(window_length).mean()
+    v_mid = (v_high_th+v_low_th)/2
+    
+    # find mean slope of the period
+    diff_df = df.diff(window_length)
+    mean_diff_df = diff_df.mean()
     dxdt = mean_diff_df[key]
-    end_state_voltage = df.iloc[-1-window_length:-1][key].mean()
-    if dxdt > derivative_threshold and end_state_voltage >= v_high_th:
+
+    # Classify event type 
+    if dxdt > derivative_threshold:
+        diff_df.sort_index(inplace=True)
+        diff_df.reset_index(inplace=True)
+        diff_df['index'] -= diff_df['index'].min()
+        diff_df['greater_than_mean'] = diff_df[key]>mean_diff_df[key]
+        diff_df_shift = diff_df['greater_than_mean'] != diff_df['greater_than_mean'].shift()
+        diff_df_agg = diff_df.groupby(diff_df_shift.cumsum()).agg({'index':['count', 'min', 'max']})
+        diff_df_agg.columns = diff_df_agg.columns.droplevel()
+        maxCount = diff_df_agg[diff_df_agg['count'] == diff_df_agg['count'].max()]
+        end_state_voltage = df.iloc[maxCount['max'].values[0]-1:-1][key].mean()
+
         df['event'] = 'rise'
-        return df
-    elif dxdt < -derivative_threshold and end_state_voltage <= v_low_th:
+        if end_state_voltage >= v_high_th:
+            df['good'] = True
+        elif end_state_voltage >= v_mid:
+            df['good'] = False
+    elif dxdt < -derivative_threshold:
+        diff_df.sort_index(inplace=True)
+        diff_df.reset_index(inplace=True)
+        diff_df['index'] -= diff_df['index'].min()
+        diff_df['less_than_mean'] = diff_df[key]<mean_diff_df[key]
+        diff_df_shift = diff_df['less_than_mean'] != diff_df['less_than_mean'].shift()
+        diff_df_agg = diff_df.groupby(diff_df_shift.cumsum()).agg({'index':['count', 'min', 'max']})
+        diff_df_agg.columns = diff_df_agg.columns.droplevel()
+        maxCount = diff_df_agg[diff_df_agg['count'] == diff_df_agg['count'].max()]
+        end_state_voltage = df.iloc[maxCount['max'].values[0]-1:-1][key].mean()
+        
         df['event'] = 'fall'
-        return df
+        if end_state_voltage <= v_low_th:
+            df['good'] = True
+        elif end_state_voltage <= v_mid:
+            df['good'] = False
     else:
-        if df[key].median()>v_high_th:
+        v_median = df[key].median()
+        if v_median>v_high_th:
             df['event'] = 'high'
-            return df
+            df['good'] = True
+        elif v_median > v_mid:
+            df['event'] = 'high'
+            df['good'] = False
         elif df[key].median()<v_low_th:
             df['event'] = 'low'
-            return df
+            df['good'] = True
+        elif v_median < v_mid:
+            df['event'] = 'low'
+            df['good'] = False
         else:
-            df['event'] = None
-            return df
+            df['event'] = 'unidentified'
+            df['good'] = False
+
+    return df
 
 def capture_transitions(
         df: pd.DataFrame, key:str, 
