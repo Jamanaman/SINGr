@@ -25,7 +25,7 @@ _SI_MAG_PREFIXES = {
 
 def generate_report():
     '''
-    [WIP] Target v0.0.2
+    [WIP] Target v0.0.3
     '''
     pass
 
