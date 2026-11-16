@@ -7,6 +7,8 @@ from typing import List, Tuple
 def make_pwl_from_bitstream(bitstream:List[int], period:float) -> List[Tuple[float]]:
     '''
     Make a PWL value sequence to be used in any InSpice source which implements PieceWiseLinearMixIn.
+
+    # TODO add jitter
     '''
     pwl_vals = []
     for i, v_bit in enumerate(bitstream):
