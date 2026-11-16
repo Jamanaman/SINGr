@@ -66,8 +66,12 @@ def traverse_net_tree_and_build(net_tree: CommunicationNet, tree_level:int = 0, 
     -------
         InSPICE circuit with completed net tree from the current depth
     '''
+    # Input Nodes
     tline_ins = []
+
+    # Iterate through transmission line input nodes with corresponding terminations, stimuli, clock frequencies and stimulus delays
     for idx, (node_in, termination_in, stimulus, freq, delay) in enumerate(zip(net_tree.t_line_nodes_in, net_tree.terminations_start, net_tree.stimuli, net_tree.clock_frequencies_Hz, net_tree.delays_s)):
+        # set input node name
         if isinstance(node_in, str):
             if 'gnd' in node_in:
                 name_node_in = circ.gnd
@@ -75,8 +79,11 @@ def traverse_net_tree_and_build(net_tree: CommunicationNet, tree_level:int = 0, 
                 name_node_in = node_in
         else:
             name_node_in = f'pin_in_{tree_level}_{idx}' 
+
+        # set node name for node connected in series between the input node and the transmission line input to allow for terminations
         name_series_node = f'line_in_{tree_level}_{idx}'
         series_termination = False
+        # if there is a termination at the transmission line input connect it
         if not termination_in is None:
             circ.include(termination_in.lib)
             sckt_line:str = find_subckt_line(termination_in.subcircuit_card, True)
@@ -84,15 +91,21 @@ def traverse_net_tree_and_build(net_tree: CommunicationNet, tree_level:int = 0, 
             for entry in sckt_line.split(' ')[2:]:
                 if not '=' in entry:
                     termination_nodes.append(entry)
+            # if the termination is in series e.g. a series resistor connect between the input node and the transmission line input
             if len(termination_nodes) > 1:
                 series_termination = True
                 instantiate_subckt_with_instance_params(circ, termination_in, [name_node_in, name_series_node], f'start_termination_{tree_level}_{idx}')
                 tline_ins.append(name_series_node)
+            # TODO parallel terminations not yet implemented
+
+        # if input node is a model connection, connect model and configure if it is an IBIS model
         if isinstance(node_in, Model):
             params_dict = {}
             if not net_tree.clock_frequencies_Hz[idx] is None:
                 params_dict.update({'freq': net_tree.clock_frequencies_Hz[idx]})
             circ.include(node_in.lib)
+            # build pseudorandom bitstream pwl input if the stimulus is not hardcoded into the spice model
+            # TODO allow specification per model of bitstream
             if 'TRIG' in node_in.subcircuit_card and stimulus == 'TRIG':
                 if freq is None:
                      raise ValueError('TRIG Stimulus given without clock frequency')
@@ -104,6 +117,8 @@ def traverse_net_tree_and_build(net_tree: CommunicationNet, tree_level:int = 0, 
                 instantiate_subckt_with_instance_params(circ, node_in, [name_node_in, f'trig_{tree_level}_{idx}'], f'sender_{tree_level}_{idx}')
             else:
                 instantiate_subckt_with_instance_params(circ, node_in, [name_node_in], f'sender_{tree_level}_{idx}')
+        
+        # connect tline directly to input pin of this subnet if there is no series termination at input
         if not series_termination:
             tline_ins.append(name_node_in)
 
