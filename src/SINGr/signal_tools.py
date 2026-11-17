@@ -7,7 +7,7 @@ from typing import List, Optional, Dict
 from scipy.interpolate import make_interp_spline, BSpline
 import pandas as pd 
 
-def walk_forward_to_logic_level(
+def walk_back_to_logic_level(
         df:pd.DataFrame, t_transition_detected: float, 
         logic_level_v:float, v_tol: float, key: str
         ) -> float:
@@ -15,8 +15,8 @@ def walk_forward_to_logic_level(
     Walks from transition being detected to the next logic level.
     '''
 
-    df_walk = df.where(df['time']>=t_transition_detected).dropna()
-    for row, data in df_walk.iterrows():
+    df_walk = df.where(df['time']<=t_transition_detected).dropna()
+    for row, data in df_walk.sort_values(by=['time'], ascending=False).iterrows():
         if isclose(data[key], logic_level_v, atol=v_tol):
             return data['time']
     else:
@@ -151,7 +151,7 @@ def capture_transitions(
             # Check to see if signal deviates outside of logic level
             if df_smoothed[key][i] - df_smoothed[key][i-1] < -min_transition_slope and df_smoothed[key][i] < v_high_th:
                 hold = True
-                t_transition = df['time'][i]
+                t_transition = df_smoothed['time'][i]
                 first_edge_rising = False
             elif df_smoothed[key][i] - df_smoothed[key][i-1] > min_transition_slope and df_smoothed[key][i] > v_low_th:
                 hold = True
@@ -161,15 +161,15 @@ def capture_transitions(
                 continue
         else:
             # Check to see if signal has completed a transition from one level to the next
-            is_high_to_low = first_edge_rising and df_resampled[key][i] < df_resampled[key][i-1] and df_resampled[key][i] < v_low_th
-            is_low_to_high = not first_edge_rising and df_resampled[key][i] > df_resampled[key][i-1] and df_resampled[key][i] > v_high_th
+            is_high_to_low = not first_edge_rising and df_resampled[key][i] < df_resampled[key][i-1] and df_resampled[key][i] < v_low_th
+            is_low_to_high = first_edge_rising and df_resampled[key][i] > df_resampled[key][i-1] and df_resampled[key][i] > v_high_th
             if is_high_to_low or is_low_to_high:
                 if t_transition + df_resampled['time'][i] >= clock_period:
                     triggered = True
                     try:
-                        t_transition = walk_forward_to_logic_level(
-                            df_resampled, t_transition, 
-                            v_low if is_high_to_low else v_high, 
+                        t_transition = walk_back_to_logic_level(
+                            df, t_transition, 
+                            v_high if is_high_to_low else v_low, 
                             v_high*0.01, key
                             )
                         break
@@ -226,7 +226,7 @@ def characterise_transitions(
     edge_v = v_high_th-v_low_th
     mid_v = edge_v/2+v_low_th
     edge_df = transitions_df.where((transitions_df['event'] == 'rise')|(transitions_df['event'] == 'fall')).dropna()
-    for edge, data in edge_df.where(abs(edge_df[key]-mid_v)<=mid_v).dropna().groupby('event'):
+    for edge, data in edge_df.where(abs(edge_df[key]-mid_v)<=edge_v/2).dropna().groupby('event'):
         edge_sign = 1 if edge=='rise' else -1
         measurements_dict.update({f'{edge.capitalize()} Time': data.groupby('period_index').apply(lambda period: period['time'].max()-period['time'].min()).mean()})
         measurements_dict.update({f'Slew Rate {edge.capitalize()}': edge_v/measurements_dict[f'{edge.capitalize()} Time']*edge_sign})
