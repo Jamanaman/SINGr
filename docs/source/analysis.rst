@@ -24,8 +24,13 @@ After segmentation, each unit interval is classified. This is done based on mean
 Waveform Analysis
 -----------------
 Waveform analysis currently involves taking single unit intervals which are classified only as Rise, Fall, High and Low events. 
-Rising and falling waveforms are then analysed for Rise and Fall times (10/90), slew rates for rising and falling edges, overshoot 
-amplitude above logic high, undershoot amplitude below logic low and settling time to within the desired voltage region (+/- 10%). 
+Rising and falling waveforms are then for the following features: 
+
+* Rise/Fall Times: Time between 90%/10% of the specified voltage range
+* Slew Rates: Linearised Slew of Rise and Fall time segments
+* Overshoot: Mean amplitude across all captured transitions of overshoot above logic high level
+* Undershoot: Mean amplitude across all captured transitions of overshoot below logic low level
+* Settling Time: Mean across all captured transitions where voltage settles to within the specified logic level +/- threshold
 
 Eye Analysis
 ------------
