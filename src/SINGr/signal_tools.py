@@ -42,7 +42,7 @@ def classify_period(
     v_mid = (v_high_th+v_low_th)/2
     
     # find mean slope of the period
-    diff_df = df.diff(window_length)
+    diff_df = df.diff().rolling(window_length).mean()
     mean_diff_df = diff_df.mean()
     dxdt = mean_diff_df[key]
 
