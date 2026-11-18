@@ -158,15 +158,16 @@ def perform_waveform_analysis(
         generate html output report if true
     '''
     transitions_df = capture_transitions(df, key, clock_frequency, v_high, v_low, threshold_pct, datastream)
-    transition_features = characterise_transitions(transitions_df, key, v_high, v_low, threshold_pct)
+    transition_features = characterise_transitions(transitions_df, key, v_high, v_low, threshold_pct, clock_frequency)
 
     if visualise or output_report:
 
         # Find logical SI unit prefix for timescale and scale appropriately 
         tspan = transitions_df['period_time'].max()-transitions_df['period_time'].min()
         tspan_mag = int(f'{tspan:.0E}'.split('E')[1])
+        t_scale = 10**tspan_mag
         prefix = _SI_MAG_PREFIXES[tspan_mag]
-        transitions_df['period_time_scaled'] = transitions_df['period_time']/10**tspan_mag
+        transitions_df['period_time_scaled'] = transitions_df['period_time']/t_scale
         
         grid = sns.relplot(
             transitions_df, y=key, x='period_time_scaled', col='event', 
@@ -174,59 +175,85 @@ def perform_waveform_analysis(
             alpha=0.33, col_wrap=2, col_order=['rise', 'fall', 'high', 'low'],
             facet_kws={'despine':False}, legend=False
             )
+        grid.figure.subplots_adjust(top=0.9)
         grid.figure.suptitle(f'Waveform Analysis {key.capitalize()}')
-        grid.set_axis_labels(f'Time ({prefix}s)', 'Voltage (V)')
+        grid.set_axis_labels(f'Time ({prefix}s)', 'Voltage (V)', clear_inner=False)
 
         v_range = v_high-v_low
         labels = []
         handles = []
         # annotate rise time and rising edge slew rate
-        start_rise = tspan/2-v_range*0.9/transition_features['Slew Rate Rise']
-        t_rise_10 = tspan/2-v_range*0.8/transition_features['Slew Rate Rise']
-        end_rise = tspan/2+v_range*0.1/transition_features['Slew Rate Rise']
+        t_rise_10 = v_range*0.1/transition_features['Slew Rate Rise']
+        t_rise_90 = v_range*0.9/transition_features['Slew Rate Rise']
+        end_rise = v_range/transition_features['Slew Rate Rise']
         rise_label = f'Rising Slew Rate: {transition_features['Slew Rate Rise']:.3E}V/s'
         rise_line = grid.axes[0].plot(
-            [0, start_rise/10**tspan_mag, t_rise_10/10**tspan_mag, tspan/2/10**tspan_mag, end_rise/10**tspan_mag, tspan/10**tspan_mag], 
-            [v_low, v_low, v_low+v_range*0.1, v_low+v_range*0.9, v_high, v_high], 
+            [0, end_rise/t_scale, tspan/t_scale], 
+            [v_low, v_high, v_high], 
             color='r', linestyle='--', label=rise_label
         )
         labels.append(rise_label)
-        handles.append(rise_line)
+        handles.append(rise_line[0])
 
         t_rise_label = f'Rise Time: {transition_features['Rise Time']:.3E}s'
         rise_time_lines = grid.axes[0].vlines( 
-            [t_rise_10/10**tspan_mag, tspan/2/10**tspan_mag], 
+            [t_rise_10/t_scale, t_rise_90/t_scale], 
             0, 1, transform=grid.axes[0].get_xaxis_transform(), 
             colors='r', linestyles='dotted', label=t_rise_label
         )
-        labels.append(rise_label)
+        labels.append(t_rise_label)
         handles.append(rise_time_lines) 
 
+        # annotate overshoot
+        overshoot_label = f'Overshoot: {transition_features['Overshoot']:.3E}V'
+        overshoot_line = grid.axes[0].hlines(
+            v_high+transition_features['Overshoot'], 
+            end_rise/t_scale, tspan/t_scale, 
+            colors='orange', linestyles='dashdot',
+            label = overshoot_label
+            )
+        labels.append(overshoot_label)
+        handles.append(overshoot_line)
+
         # annotate fall time and falling edge slew rate
-        start_fall = tspan/2+v_range*0.9/transition_features['Slew Rate Fall']
-        t_fall_10 = tspan/2+v_range*0.8/transition_features['Slew Rate Fall']
-        end_fall = tspan/2-v_range*0.1/transition_features['Slew Rate Fall']
+        t_fall_10 = -v_range*0.1/transition_features['Slew Rate Fall']
+        t_fall_90 = -v_range*0.9/transition_features['Slew Rate Fall']
+        end_fall = -v_range/transition_features['Slew Rate Fall']
         fall_label = f'Falling Slew Rate: {transition_features['Slew Rate Fall']:.3E}V/s'
         fall_line = grid.axes[1].plot(
-            [0, start_fall/10**tspan_mag, t_fall_10/10**tspan_mag, tspan/2/10**tspan_mag, end_fall/10**tspan_mag, tspan/10**tspan_mag], 
-            [v_high, v_high, v_low+v_range*0.9, v_low+v_range*0.1, v_low, v_low], 
+            [0, end_fall/t_scale, tspan/t_scale], 
+            [v_high, v_low, v_low], 
             color='b', linestyle='--', label=fall_label
         )
         labels.append(fall_label)
-        handles.append(fall_line)
+        handles.append(fall_line[0])
 
         t_fall_label = f'Fall Time: {transition_features['Fall Time']:.3E}s'
         fall_time_lines = grid.axes[1].vlines( 
-            [t_fall_10/10**tspan_mag, tspan/2/10**tspan_mag], 
-            0, 1, transform=grid.axes[0].get_xaxis_transform(), 
+            [t_fall_10/t_scale, t_fall_90/t_scale], 
+            0, 1, transform=grid.axes[1].get_xaxis_transform(), 
             colors='b', linestyles='dotted', label=t_fall_label
         )
         labels.append(t_fall_label)
         handles.append(fall_time_lines) 
 
+        # annotate undershoot
+        undershoot_label = f'Undershoot: {transition_features['Undershoot']:.3E}V'
+        undershoot_line = grid.axes[1].hlines(
+            v_low+transition_features['Undershoot'], 
+            end_rise/t_scale, tspan/t_scale, 
+            colors='purple', linestyles='dashdot',
+            label = undershoot_label
+            )
+        labels.append(undershoot_label)
+        handles.append(undershoot_line)
 
-        grid.add_legend({label: handle for label, handle in zip(labels, handles)}, title='Waveform Measurements', label_order=labels)
-        
+        grid.add_legend(
+            {label: handle for label, handle in zip(labels, handles)}, 
+            title='Waveform Measurements', label_order=labels,
+            frameon=True, framealpha=0.75,
+            facecolor='lightgrey', 
+            )
         if visualise:
             plt.show()
         print('\n'.join([f'|{key}: {val:.3E}|' for key, val in transition_features.items()]))
