@@ -103,7 +103,7 @@ def capture_transitions(
         df: pd.DataFrame, key:str, 
         clock_frequency:float, v_high:float, 
         v_low:float, threshold_pct:float, 
-        datastream:Optional[List] = None
+        datastream:Optional[List] = None, offset=-1/2
         ) -> pd.DataFrame:
     '''
     Reads a datastream and triggers on valid logic transition, before classifying every
@@ -139,8 +139,10 @@ def capture_transitions(
     triggered = False
     first_edge_rising = False
     # Use smoothed signal to find a transition 
-    resample_time = linspace(min_delay, df['time'].max(), num=int(ceil((df['time'].max()-min_delay)/resolving_sample_period)))
+    # drop first clock period
     df_trim = df.where(df['time']>=min_delay).dropna()
+    df_trim['time']-=df_trim['time'].min()
+    resample_time = linspace(0, df_trim['time'].max(), num=int(ceil(df_trim['time'].max()/resolving_sample_period)))
     interp_data: BSpline = make_interp_spline(y=df_trim[key], x=df_trim['time'])
     df_resampled = pd.DataFrame({key: interp_data(resample_time), 'time': resample_time})
     df_smoothed = df_resampled.rolling(window=10).median().dropna(ignore_index=True)
@@ -168,13 +170,14 @@ def capture_transitions(
                     triggered = True
                     try:
                         t_transition = walk_back_to_logic_level(
-                            df, t_transition, 
+                            df_trim, t_transition, 
                             v_high if is_high_to_low else v_low, 
                             v_high*0.01, key
                             )
                         break
                     except:
                         triggered = False
+                        hold = False
                         continue
                 else:
                     hold = False
@@ -182,13 +185,13 @@ def capture_transitions(
         raise Exception()
 
     # take signal from half a clock period before the transition
-    df_trig = df_resampled.where(df_resampled['time']>=t_transition-clock_period/2).dropna(ignore_index=True)
+    df_trig = df_trim.where(df_trim['time']>=t_transition+offset*clock_period).dropna(ignore_index=True)
     # rezero the time of the data signal from the triggered point
-    df_trig['time'] = df_trig['time']-df_trig['time'][0]
+    df_trig['time'] -= df_trig['time'].min()
     df_classified = pd.DataFrame()
-    for _, data in df_trig.groupby(df_trig.index // 1000):
+    for period_index, data in df_trig.groupby(df_trig.time // clock_period):
         period_df = classify_period(data, key, v_high_th, v_low_th, min_transition_slope)
-        period_df['period_index'] = floor(period_df['time'].min()/clock_period)
+        period_df['period_index'] = period_index
         period_df['period_time'] = period_df['time']-period_df['time'].min()
         df_classified = pd.concat(
             [
