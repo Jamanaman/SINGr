@@ -229,9 +229,12 @@ def characterise_transitions(
     edge_v = v_high_th-v_low_th
     mid_v = edge_v/2+v_low_th
     edge_df = transitions_df.where((transitions_df['event'] == 'rise')|(transitions_df['event'] == 'fall')).dropna()
-    for edge, data in edge_df.where(abs(edge_df[key]-mid_v)<=edge_v/2).dropna().groupby('event'):
+    for edge, data in edge_df.groupby('event'):
         edge_sign = 1 if edge=='rise' else -1
-        measurements_dict.update({f'{edge.capitalize()} Time': data.groupby('period_index').apply(lambda period: period['time'].max()-period['time'].min()).mean()})
+        if edge == 'rise':
+            measurements_dict.update({f'{edge.capitalize()} Time': data.groupby('period_index').apply(lambda period:period['period_time'].where(period[key]>v_high_th).min()-period['period_time'].where(period[key]>v_low_th).min()).mean()})
+        else:
+            measurements_dict.update({f'{edge.capitalize()} Time': data.groupby('period_index').apply(lambda period:period['period_time'].where(period[key]<v_low_th).min()-period['period_time'].where(period[key]<v_high_th).min()).mean()})
         measurements_dict.update({f'Slew Rate {edge.capitalize()}': edge_v/measurements_dict[f'{edge.capitalize()} Time']*edge_sign})
     
     measurements_dict.update({
