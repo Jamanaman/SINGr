@@ -63,7 +63,7 @@ def perform_eye_analysis(
     output_report : bool, optional
         generate html output report if true
     '''
-    transitions_df = capture_transitions(df, key, clock_frequency, v_high, v_low, threshold_pct, datastream)
+    transitions_df = capture_transitions(df, key, clock_frequency, v_high, v_low, threshold_pct, datastream, offset=0)
 
     chunk_df, hist_measurements = generate_eye_histogram(transitions_df, key, statistical_jitter_s)
     if visualise or output_report:
