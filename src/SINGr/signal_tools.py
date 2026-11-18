@@ -2,7 +2,7 @@
 General utility functions for processing time series signals.
 '''
 
-from numpy import isclose, floor, ceil, linspace
+from numpy import isclose, floor, ceil, linspace, isnan
 from typing import List, Optional, Dict
 from scipy.interpolate import make_interp_spline, BSpline
 import pandas as pd 
@@ -16,11 +16,11 @@ def walk_back_to_logic_level(
     '''
 
     df_walk = df.where(df['time']<=t_transition_detected).dropna()
-    for row, data in df_walk.sort_values(by=['time'], ascending=False).iterrows():
-        if isclose(data[key], logic_level_v, atol=v_tol):
-            return data['time']
+    t = df_walk['time'].where(isclose(df_walk[key], logic_level_v, atol=v_tol)).max()
+    if isnan(t):
+        raise Exception
     else:
-        raise Exception()
+        return t
         
 def classify_period(
         df:pd.DataFrame, key:str, 
