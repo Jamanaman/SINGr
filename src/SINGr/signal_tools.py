@@ -2,7 +2,7 @@
 General utility functions for processing time series signals.
 '''
 
-from numpy import isclose, floor, ceil, linspace, isnan
+from numpy import isclose, ceil, linspace, isnan
 from typing import List, Optional, Dict
 from scipy.interpolate import make_interp_spline, BSpline
 import pandas as pd 
