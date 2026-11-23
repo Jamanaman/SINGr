@@ -7,15 +7,18 @@ from typing import List, Optional, Dict
 from scipy.interpolate import make_interp_spline, BSpline
 import pandas as pd 
 
-def walk_back_to_logic_level(
+def check_logic_level(
         df:pd.DataFrame, t_transition_detected: float, 
-        logic_level_v:float, v_tol: float, key: str
+        logic_level_v:float, v_tol: float, key: str,
+        forward: bool = True
         ) -> float:
     '''
-    Walks from transition being detected to the next logic level.
+    Checks that logic transition occurs
     '''
-
-    df_walk = df.where(df['time']<=t_transition_detected).dropna()
+    if forward:
+        df_walk = df.where(df['time']>=t_transition_detected).dropna()
+    else:
+        df_walk = df.where(df['time']<=t_transition_detected).dropna()
     t = df_walk['time'].where(isclose(df_walk[key], logic_level_v, atol=v_tol)).max()
     if isnan(t):
         raise Exception
@@ -169,10 +172,19 @@ def capture_transitions(
                 if t_transition + df_resampled['time'][i] >= clock_period:
                     triggered = True
                     try:
-                        t_transition = walk_back_to_logic_level(
+                        # check transition in both directions to ensure that the transition is from one level to the 
+                        # other and not just a large wobble
+                        t_transition = check_logic_level(
                             df_trim, t_transition, 
                             v_high if is_high_to_low else v_low, 
-                            v_high*0.01, key
+                            v_high*0.01, key,
+                            forward=False
+                            )
+                        check_logic_level(
+                            df_trim, t_transition, 
+                            v_low if is_high_to_low else v_high, 
+                            v_high*0.01, key,
+                            forward=True
                             )
                         break
                     except:
@@ -185,7 +197,7 @@ def capture_transitions(
         raise Exception()
 
     # take signal from half a clock period before the transition
-    df_trig = df_trim.where(df_trim['time']>=t_transition+offset*clock_period).dropna(ignore_index=True)
+    df_trig = df_trim.where(df_trim['time']>=t_transition).dropna(ignore_index=True)
     # rezero the time of the data signal from the triggered point
     df_trig['time'] -= df_trig['time'].min()
     df_classified = pd.DataFrame()
