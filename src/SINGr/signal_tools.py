@@ -103,7 +103,7 @@ def capture_transitions(
         df: pd.DataFrame, key:str, 
         clock_frequency:float, v_high:float, 
         v_low:float, threshold_pct:float, 
-        datastream:Optional[List] = None, offset=-1/2
+        datastream:Optional[List] = None
         ) -> pd.DataFrame:
     '''
     Reads a datastream and triggers on valid logic transition, before classifying every
@@ -204,7 +204,7 @@ def capture_transitions(
 def characterise_transitions(
         transitions_df: pd.DataFrame, key:str, 
         v_high:float, v_low:float, 
-        threshold_pct:float
+        rise_fall_pct:float = 0.9
         ) -> Dict:
     '''
     Takes all transitions and measures transition features including rise/fall time
@@ -222,7 +222,7 @@ def characterise_transitions(
     TODO: Potentially add preshoot analysis and ringing analysis. 
     '''
     
-    v_tol = (v_high-v_low)*(1-threshold_pct)
+    v_tol = (v_high-v_low)*(1-rise_fall_pct)
     v_low_th = v_low+v_tol
     v_high_th = v_high-v_tol
     measurements_dict = {}

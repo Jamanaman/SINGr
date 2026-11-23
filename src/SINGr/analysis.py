@@ -154,7 +154,7 @@ def perform_waveform_analysis(
         generate html output report if true
     '''
     transitions_df = capture_transitions(df, key, clock_frequency, v_high, v_low, threshold_pct, datastream)
-    transition_features = characterise_transitions(transitions_df, key, v_high, v_low, threshold_pct, clock_frequency)
+    transition_features = characterise_transitions(transitions_df, key, v_high, v_low)
 
     if visualise or output_report:
 
