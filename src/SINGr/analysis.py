@@ -13,15 +13,11 @@ from typing import List, Optional, Literal
 
 from .signal_tools import capture_transitions, characterise_transitions
 from .eye_tools import generate_eye_histogram
+from .utils import _SI_MAG_PREFIXES
 
 _ANALYSES = Literal['EYE', 'WAVEFORM']
 sns.set_theme("paper", "whitegrid","tab20")
-_SI_MAG_PREFIXES = {
-    0: '', 3: 'k', 6: 'M',
-    9: 'G', 12: 'T', -3: 'm', 
-    -6: '\u00B5', -9: 'n', -12: 'p',
-    -15: 'f'
-    }
+
 
 def generate_report():
     '''
