@@ -63,12 +63,13 @@ configuration parameters are provided. Additionally, the requested analyses are 
 
 The measurements from the waveform analysis are as follows: ::
 
-    |Time Eye Center: 1.779E-09|
-    |0 Level: -2.249E-01|
-    |1 Level: 1.440E+00|
-    |Eye Height 0: 1.080E+00|
-    |Eye Amplitude 0: 1.665E+00|
-    |Eye Width 0: 3.956E-04|
+    |Fall Time: 1.846E-10|
+    |Slew Rate Fall: -5.200E+09|
+    |Rise Time: 1.904E-10|
+    |Slew Rate Rise: 5.042E+09|
+    |Overshoot: 5.258E-01|
+    |Undershoot: -4.503E-01|
+    |Settling Time: 1.243E-09|
 
 .. image:: /examples_resources/ex1_wf.png
     :width: 80%
@@ -76,13 +77,16 @@ The measurements from the waveform analysis are as follows: ::
 
 The measurements from the eye diagram analysis are as follows: :: 
 
-    |Fall Time: 1.225E-09|
-    |Slew Rate Fall: -7.835E+08|
-    |Rise Time: 9.873E-10|
-    |Slew Rate Rise: 9.724E+08|
-    |Overshoot: -4.354E-02|
-    |Undershoot: -5.082E-02|
-    |Settling Time: 1.243E-09|
+    |Time Eye Center: 7.722E-10|
+    |0 Level: -1.404E-01|
+    |1 Level: 1.435E+00|
+    |Eye Height 0: 1.100E+00|
+    |Eye Bottom 0: 1.153E+00|
+    |Eye Top 0: 5.336E-02|
+    |Eye Amplitude 0: 1.576E+00|
+    |Eye Width 0: 1.176E-09|
+    |Eye Right 0: 1.357E-09|
+    |Eye Left 0: 1.813E-10|
 
 .. image:: /examples_resources/ex1_eye.png
 
@@ -124,15 +128,28 @@ Waveform and Eye Analysis were performed on the daisy chain structure detailed i
             terminations_end=[None, None, None]
     )
 
+Additionally, the analyses were manually configured with the specific node name to be checked and some specific 
+configuration settings in a dictionary: ::
+
+    analysis_config = {'key': 'pin_out_1_0',     
+                'clock_frequency': comp.net_tree.clock_frequencies_Hz[0],
+                'v_high': comp.net_tree.v_logic[0][1],
+                'v_low':  comp.net_tree.v_logic[0][0],
+                'threshold_pct': 0.8, 
+                'statistical_jitter_s': 0,
+                'visualise': True}
+    results = compose_and_run_simulation(comp)
+    analyse_simulation_results(comp, results, visualise=True, eye_config=analysis_config, waveform_config=analysis_config)
+
 The measurements from the waveform analysis are as follows: ::
 
-    |Fall Time: 1.003E-09|
-    |Slew Rate Fall: -9.572E+08|
-    |Rise Time: 1.056E-09|
-    |Slew Rate Rise: 9.091E+08|
-    |Overshoot: 2.616E-02|
-    |Undershoot: -1.222E-01|
-    |Settling Time: 1.238E-09|
+    |Fall Time: 1.365E-10|
+    |Slew Rate Fall: -7.036E+09|
+    |Rise Time: 1.357E-10|
+    |Slew Rate Rise: 7.076E+09|
+    |Overshoot: 5.061E-01|
+    |Undershoot: -4.756E-01|
+    |Settling Time: 9.807E-10|
 
 .. image:: /examples_resources/ex2_wf.png
     :width: 80%
@@ -140,12 +157,16 @@ The measurements from the waveform analysis are as follows: ::
    
 The measurements from the eye diagram analysis are as follows: :: 
     
-    |Time Eye Center: 3.041E-09|
-    |0 Level: 1.041E-01|
-    |1 Level: 1.053E+00|
-    |Eye Height 0: 5.933E-01|
-    |Eye Amplitude 0: 9.491E-01|
-    |Eye Width 0: 5.062E-04|
+    |Time Eye Center: 1.059E-09|
+    |0 Level: -1.817E-01|
+    |1 Level: 1.460E+00|
+    |Eye Height 0: 1.027E+00|
+    |Eye Bottom 0: 1.130E+00|
+    |Eye Top 0: 1.027E-01|
+    |Eye Amplitude 0: 1.642E+00|
+    |Eye Width 0: 1.176E-09|
+    |Eye Right 0: 1.634E-09|
+    |Eye Left 0: 4.575E-10|
 
 .. image:: /examples_resources/ex2_eye.png
     :width: 80%
