@@ -162,6 +162,7 @@ def perform_waveform_analysis(
         tspan = transitions_df['period_time'].max()-transitions_df['period_time'].min()
         tspan_mag = int(f'{tspan:.0E}'.split('E')[1])
         t_scale = 10**tspan_mag
+        tspan_scaled = tspan/t_scale
         prefix = _SI_MAG_PREFIXES[tspan_mag]
         transitions_df['period_time_scaled'] = transitions_df['period_time']/t_scale
         
@@ -179,12 +180,12 @@ def perform_waveform_analysis(
         labels = []
         handles = []
         # annotate rise time and rising edge slew rate
-        t_rise_10 = v_range*0.1/transition_features['Slew Rate Rise']
-        t_rise_90 = v_range*0.9/transition_features['Slew Rate Rise']
-        end_rise = v_range/transition_features['Slew Rate Rise']
+        t_rise_10 = v_range*0.1/transition_features['Slew Rate Rise']/t_scale
+        t_rise_90 = v_range*0.9/transition_features['Slew Rate Rise']/t_scale
+        end_rise = v_range/transition_features['Slew Rate Rise']/t_scale
         rise_label = f'Rising Slew Rate: {transition_features['Slew Rate Rise']:.3E}V/s'
         rise_line = grid.axes[0].plot(
-            [0, end_rise/t_scale, tspan/t_scale], 
+            [0, end_rise, tspan_scaled], 
             [v_low, v_high, v_high], 
             color='r', linestyle='--', label=rise_label
         )
@@ -193,7 +194,7 @@ def perform_waveform_analysis(
 
         t_rise_label = f'Rise Time: {transition_features['Rise Time']:.3E}s'
         rise_time_lines = grid.axes[0].vlines( 
-            [t_rise_10/t_scale, t_rise_90/t_scale], 
+            [t_rise_10, t_rise_90], 
             0, 1, transform=grid.axes[0].get_xaxis_transform(), 
             colors='r', linestyles='dotted', label=t_rise_label
         )
@@ -204,7 +205,7 @@ def perform_waveform_analysis(
         overshoot_label = f'Overshoot: {transition_features['Overshoot']:.3E}V'
         overshoot_line = grid.axes[0].hlines(
             v_high+transition_features['Overshoot'], 
-            end_rise/t_scale, tspan/t_scale, 
+            end_rise, tspan_scaled, 
             colors='orange', linestyles='dashdot',
             label = overshoot_label
             )
@@ -212,12 +213,12 @@ def perform_waveform_analysis(
         handles.append(overshoot_line)
 
         # annotate fall time and falling edge slew rate
-        t_fall_10 = -v_range*0.1/transition_features['Slew Rate Fall']
-        t_fall_90 = -v_range*0.9/transition_features['Slew Rate Fall']
-        end_fall = -v_range/transition_features['Slew Rate Fall']
+        t_fall_10 = -v_range*0.1/transition_features['Slew Rate Fall']/t_scale
+        t_fall_90 = -v_range*0.9/transition_features['Slew Rate Fall']/t_scale
+        end_fall = -v_range/transition_features['Slew Rate Fall']/t_scale
         fall_label = f'Falling Slew Rate: {transition_features['Slew Rate Fall']:.3E}V/s'
         fall_line = grid.axes[1].plot(
-            [0, end_fall/t_scale, tspan/t_scale], 
+            [0, end_fall, tspan_scaled], 
             [v_high, v_low, v_low], 
             color='b', linestyle='--', label=fall_label
         )
@@ -226,7 +227,7 @@ def perform_waveform_analysis(
 
         t_fall_label = f'Fall Time: {transition_features['Fall Time']:.3E}s'
         fall_time_lines = grid.axes[1].vlines( 
-            [t_fall_10/t_scale, t_fall_90/t_scale], 
+            [t_fall_10, t_fall_90], 
             0, 1, transform=grid.axes[1].get_xaxis_transform(), 
             colors='b', linestyles='dotted', label=t_fall_label
         )
@@ -237,7 +238,7 @@ def perform_waveform_analysis(
         undershoot_label = f'Undershoot: {transition_features['Undershoot']:.3E}V'
         undershoot_line = grid.axes[1].hlines(
             v_low+transition_features['Undershoot'], 
-            end_rise/t_scale, tspan/t_scale, 
+            end_fall, tspan_scaled, 
             colors='purple', linestyles='dashdot',
             label = undershoot_label
             )
