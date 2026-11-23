@@ -8,17 +8,20 @@ Implemented analyses include:
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib.patches import FancyArrowPatch
 from typing import List, Optional, Literal
 
 from .signal_tools import capture_transitions, characterise_transitions
 from .eye_tools import generate_eye_histogram
+from .utils import _SI_MAG_PREFIXES
 
 _ANALYSES = Literal['EYE', 'WAVEFORM']
 sns.set_theme("paper", "whitegrid","tab20")
 
+
 def generate_report():
     '''
-    [WIP] Target v0.0.2
+    [WIP] Target v0.0.3
     '''
     pass
 
@@ -56,21 +59,60 @@ def perform_eye_analysis(
     output_report : bool, optional
         generate html output report if true
     '''
-    transitions_df = capture_transitions(df, key, clock_frequency, v_high, v_low, threshold_pct, datastream)
+    transitions_df = capture_transitions(df, key, clock_frequency, v_high, v_low, threshold_pct, datastream, offset=0)
 
     chunk_df, hist_measurements = generate_eye_histogram(transitions_df, key, statistical_jitter_s)
     if visualise or output_report:
+        # find distance from logic level to threshold value
         threshold_dist = (v_high-v_low)*(1-threshold_pct)
-        ax = sns.lineplot(chunk_df, x='chunk_time', y=key, units='sequence', estimator=None, alpha=0.2, label=None, color="tab:orange")
+        
+        # Find logical SI unit prefix for timescale and scale appropriately 
+        tspan = chunk_df.chunk_time.max()-chunk_df.chunk_time.min()
+        tspan_mag = int(f'{tspan:.0E}'.split('E')[1])
+        prefix = _SI_MAG_PREFIXES[tspan_mag]
+        chunk_df['chunk_time_scaled'] = chunk_df['chunk_time']/10**tspan_mag
+
+        # plot results
+        ax = sns.lineplot(chunk_df, x='chunk_time_scaled', y=key, units='sequence', estimator=None, alpha=0.2, label=None, color="tab:orange")
         ax.set_title(f'Eye Diagram {key.capitalize()}')
-        ax.set_xlabel('Volts (V)')
-        # TODO time prefix for key for easier legibility
-        ax.set_ylabel('Time (s)')
-        ax.hlines([v_low, v_high], xmin=0, xmax=chunk_df['chunk_time'].max(), linestyles='dashed', label='Expected Voltage Levels', colors='r')
-        ax.fill_between([chunk_df['chunk_time'].min(), chunk_df['chunk_time'].max()], v_low+threshold_dist, v_low-threshold_dist, alpha=0.2, color='r')
-        ax.fill_between([chunk_df['chunk_time'].min(), chunk_df['chunk_time'].max()], v_high+threshold_dist, v_high-threshold_dist, alpha=0.2, color='r')
+        ax.set_ylabel('Volts (V)')
+        ax.set_xlabel(f'Time ({prefix}s)')
+        ax.hlines([v_low, v_high], xmin=0, xmax=chunk_df['chunk_time_scaled'].max(), linestyles='dashed', label='Expected Voltage Levels', colors='r')
+        ax.fill_between([chunk_df['chunk_time_scaled'].min(), chunk_df['chunk_time_scaled'].max()], v_low+threshold_dist, v_low-threshold_dist, alpha=0.2, color='r')
+        ax.fill_between([chunk_df['chunk_time_scaled'].min(), chunk_df['chunk_time_scaled'].max()], v_high+threshold_dist, v_high-threshold_dist, alpha=0.2, color='r')
+        ax.set_xlim(chunk_df['chunk_time_scaled'].min(), chunk_df['chunk_time_scaled'].max())
+
+        # annotate plot with measurements TODO
+        for key, value in hist_measurements.items():
+            if 'Level' in key:
+                lab = f'{key}: {value:.3f} V'
+                ax.axhline(y=value, label=lab, color='b')
+            elif 'Height' in key:
+                lab = f'{key}: {value:.3f} V'
+                eye_idx = key.split(' ')[-1]
+                x = hist_measurements['Time Eye Center']/10**tspan_mag
+                ax.add_patch(FancyArrowPatch(
+                    posA=(x, hist_measurements[f'Eye Bottom {eye_idx}']), 
+                    posB=(x, hist_measurements[f'Eye Top {eye_idx}']), 
+                    shrinkA=0, shrinkB=0, arrowstyle='|-|',
+                    alpha=0.75, ls='--', label=lab,
+                    color='seagreen', lw=2, mutation_scale=3
+                    ))
+            elif 'Width' in key:
+                lab = f'{key}: {value/10**tspan_mag:.3f} {prefix}s'
+                eye_idx = key.split(' ')[-1]
+                left = hist_measurements[f'Eye Left {eye_idx}']/10**tspan_mag
+                right = hist_measurements[f'Eye Right {eye_idx}']/10**tspan_mag
+                bottom = hist_measurements[f'Eye Bottom {eye_idx}']
+                top = hist_measurements[f'Eye Top {eye_idx}']
+                mid = bottom + (top-bottom)/2
+                ax.add_patch(FancyArrowPatch(
+                    posA=(left, mid), posB=(right, mid), 
+                    shrinkA=0, shrinkB=0, arrowstyle='|-|', 
+                    alpha=0.75, ls='--', label=lab,
+                    color='seagreen', lw=2, mutation_scale=3
+                    ))
         ax.legend()
-        ax.set_xlim(chunk_df['chunk_time'].min(), chunk_df['chunk_time'].max())
         hist_measurements = {key: f'{val:.3E}' for key, val in hist_measurements.items()}
         if visualise:
             plt.show()
@@ -112,18 +154,103 @@ def perform_waveform_analysis(
         generate html output report if true
     '''
     transitions_df = capture_transitions(df, key, clock_frequency, v_high, v_low, threshold_pct, datastream)
-    transition_features = characterise_transitions(transitions_df, key, v_high, v_low, threshold_pct)
+    transition_features = characterise_transitions(transitions_df, key, v_high, v_low)
 
     if visualise or output_report:
+
+        # Find logical SI unit prefix for timescale and scale appropriately 
+        tspan = transitions_df['period_time'].max()-transitions_df['period_time'].min()
+        tspan_mag = int(f'{tspan:.0E}'.split('E')[1])
+        t_scale = 10**tspan_mag
+        tspan_scaled = tspan/t_scale
+        prefix = _SI_MAG_PREFIXES[tspan_mag]
+        transitions_df['period_time_scaled'] = transitions_df['period_time']/t_scale
         
         grid = sns.relplot(
-            transitions_df, y=key, x='period_time', col='event', 
+            transitions_df, y=key, x='period_time_scaled', col='event', 
             kind='line', estimator=None, units='period_index', 
-            alpha=0.33, col_wrap=2, col_order=['rise', 'fall', 'high', 'low']
+            alpha=0.33, col_wrap=2, col_order=['rise', 'fall', 'high', 'low'],
+            facet_kws={'despine':False}, legend=False
             )
+        grid.figure.subplots_adjust(top=0.9)
         grid.figure.suptitle(f'Waveform Analysis {key.capitalize()}')
-        grid.set_axis_labels('Time (s)', 'Voltage (V)')
-        transition_features = {key: f'{val:.3E}' for key, val in transition_features.items()}
+        grid.set_axis_labels(f'Time ({prefix}s)', 'Voltage (V)', clear_inner=False)
+
+        v_range = v_high-v_low
+        labels = []
+        handles = []
+        # annotate rise time and rising edge slew rate
+        t_rise_10 = v_range*0.1/transition_features['Slew Rate Rise']/t_scale
+        t_rise_90 = v_range*0.9/transition_features['Slew Rate Rise']/t_scale
+        end_rise = v_range/transition_features['Slew Rate Rise']/t_scale
+        rise_label = f'Rising Slew Rate: {transition_features['Slew Rate Rise']:.3E}V/s'
+        rise_line = grid.axes[0].plot(
+            [0, end_rise, tspan_scaled], 
+            [v_low, v_high, v_high], 
+            color='r', linestyle='--', label=rise_label
+        )
+        labels.append(rise_label)
+        handles.append(rise_line[0])
+
+        t_rise_label = f'Rise Time: {transition_features['Rise Time']:.3E}s'
+        rise_time_lines = grid.axes[0].vlines( 
+            [t_rise_10, t_rise_90], 
+            0, 1, transform=grid.axes[0].get_xaxis_transform(), 
+            colors='r', linestyles='dotted', label=t_rise_label
+        )
+        labels.append(t_rise_label)
+        handles.append(rise_time_lines) 
+
+        # annotate overshoot
+        overshoot_label = f'Overshoot: {transition_features['Overshoot']:.3E}V'
+        overshoot_line = grid.axes[0].hlines(
+            v_high+transition_features['Overshoot'], 
+            end_rise, tspan_scaled, 
+            colors='orange', linestyles='dashdot',
+            label = overshoot_label
+            )
+        labels.append(overshoot_label)
+        handles.append(overshoot_line)
+
+        # annotate fall time and falling edge slew rate
+        t_fall_10 = -v_range*0.1/transition_features['Slew Rate Fall']/t_scale
+        t_fall_90 = -v_range*0.9/transition_features['Slew Rate Fall']/t_scale
+        end_fall = -v_range/transition_features['Slew Rate Fall']/t_scale
+        fall_label = f'Falling Slew Rate: {transition_features['Slew Rate Fall']:.3E}V/s'
+        fall_line = grid.axes[1].plot(
+            [0, end_fall, tspan_scaled], 
+            [v_high, v_low, v_low], 
+            color='b', linestyle='--', label=fall_label
+        )
+        labels.append(fall_label)
+        handles.append(fall_line[0])
+
+        t_fall_label = f'Fall Time: {transition_features['Fall Time']:.3E}s'
+        fall_time_lines = grid.axes[1].vlines( 
+            [t_fall_10, t_fall_90], 
+            0, 1, transform=grid.axes[1].get_xaxis_transform(), 
+            colors='b', linestyles='dotted', label=t_fall_label
+        )
+        labels.append(t_fall_label)
+        handles.append(fall_time_lines) 
+
+        # annotate undershoot
+        undershoot_label = f'Undershoot: {transition_features['Undershoot']:.3E}V'
+        undershoot_line = grid.axes[1].hlines(
+            v_low+transition_features['Undershoot'], 
+            end_fall, tspan_scaled, 
+            colors='purple', linestyles='dashdot',
+            label = undershoot_label
+            )
+        labels.append(undershoot_label)
+        handles.append(undershoot_line)
+
+        grid.add_legend(
+            {label: handle for label, handle in zip(labels, handles)}, 
+            title='Waveform Measurements', label_order=labels,
+            frameon=True, framealpha=0.75,
+            facecolor='lightgrey', 
+            )
         if visualise:
             plt.show()
-        print('\n'.join([f'|{key}: {val}|' for key, val in transition_features.items()]))
+        print('\n'.join([f'|{key}: {val:.3E}|' for key, val in transition_features.items()]))

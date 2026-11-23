@@ -2,25 +2,28 @@
 General utility functions for processing time series signals.
 '''
 
-from numpy import isclose, floor, ceil, linspace
+from numpy import isclose, ceil, linspace, isnan
 from typing import List, Optional, Dict
 from scipy.interpolate import make_interp_spline, BSpline
 import pandas as pd 
 
-def walk_forward_to_logic_level(
+def check_logic_level(
         df:pd.DataFrame, t_transition_detected: float, 
-        logic_level_v:float, v_tol: float, key: str
+        logic_level_v:float, v_tol: float, key: str,
+        forward: bool = True
         ) -> float:
     '''
-    Walks from transition being detected to the next logic level.
+    Checks that logic transition occurs
     '''
-
-    df_walk = df.where(df['time']>=t_transition_detected).dropna()
-    for row, data in df_walk.iterrows():
-        if isclose(data[key], logic_level_v, atol=v_tol):
-            return data['time']
+    if forward:
+        df_walk = df.where(df['time']>=t_transition_detected).dropna()
     else:
-        raise Exception()
+        df_walk = df.where(df['time']<=t_transition_detected).dropna()
+    t = df_walk['time'].where(isclose(df_walk[key], logic_level_v, atol=v_tol)).max()
+    if isnan(t):
+        raise Exception
+    else:
+        return t
         
 def classify_period(
         df:pd.DataFrame, key:str, 
@@ -36,28 +39,78 @@ def classify_period(
     have achieved a full transition within the period and where the end voltage sits for the period. 
 
     '''
-
+    df.index-=df.index.min()
     window_length = 10
-    derivative_threshold = min_transition_slope*window_length
-    mean_diff_df = df.diff(window_length).mean()
-    dxdt = mean_diff_df[key]
-    end_state_voltage = df.iloc[-1-window_length:-1][key].mean()
-    if dxdt > derivative_threshold and end_state_voltage >= v_high_th:
-        df['event'] = 'rise'
-        return df
-    elif dxdt < -derivative_threshold and end_state_voltage <= v_low_th:
-        df['event'] = 'fall'
-        return df
-    else:
-        if df[key].median()>v_high_th:
-            df['event'] = 'high'
+    v_mid = (v_high_th+v_low_th)/2
+    high_low = df[key].iloc[0] >= v_mid and df[key].iloc[-1] <= v_mid
+    low_high = df[key].iloc[0] <= v_mid and df[key].iloc[-1] >= v_mid
+    
+    # find mean slope of the period
+    diff_df = df.diff().rolling(window_length).median()
+    dxdt = diff_df.mean()[key]
+
+    # Classify event type 
+    if low_high:
+        diff_df = diff_df.sort_index().reset_index()
+        diff_df['index'] -= diff_df['index'].min()
+        diff_df['greater_than_mean'] = diff_df[key]>dxdt
+        diff_df_shift = diff_df['greater_than_mean'] != diff_df['greater_than_mean'].shift()
+        diff_df_agg = diff_df.where(diff_df['greater_than_mean']).groupby(diff_df_shift.cumsum()).agg({'index':['count', 'min', 'max']})
+        diff_df_agg.columns = diff_df_agg.columns.droplevel()
+        maxCount = diff_df_agg[diff_df_agg['count'] == diff_df_agg['count'].max()]
+        end_state_voltage = df.iloc[int(maxCount['max'].values[0]-1):-1][key].mean()
+
+        if end_state_voltage >= v_high_th:
+            df['event'] = 'rise'
+            df['good'] = True
             return df
-        elif df[key].median()<v_low_th:
-            df['event'] = 'low'
+        elif end_state_voltage >= v_mid:
+            df['event'] = 'rise'
+            df['good'] = False
             return df
         else:
-            df['event'] = None
+            pass
+        # else no edge detected
+    if high_low:
+        diff_df=diff_df.sort_index().reset_index()
+        diff_df['index'] -= diff_df['index'].min()
+        diff_df['less_than_mean'] = diff_df[key]<dxdt
+        diff_df_shift = diff_df['less_than_mean'] != diff_df['less_than_mean'].shift()
+        diff_df_agg = diff_df.groupby(diff_df_shift.cumsum()).agg({'index':['count', 'min', 'max']})
+        diff_df_agg.columns = diff_df_agg.columns.droplevel()
+        maxCount = diff_df_agg[diff_df_agg['count'] == diff_df_agg['count'].max()]
+        end_state_voltage = df.iloc[maxCount['max'].values[0]-1:-1][key].mean()
+        
+        if end_state_voltage <= v_low_th:
+            df['event'] = 'fall'
+            df['good'] = True
             return df
+        elif end_state_voltage <= v_mid:
+            df['event'] = 'fall'
+            df['good'] = False
+            return df
+        else:
+            pass
+        # else no edge transition detected 
+    
+    v_mean = df[key].mean()
+    if v_mean>v_high_th:
+        df['event'] = 'high'
+        df['good'] = True
+    elif v_mean > v_mid:
+        df['event'] = 'high'
+        df['good'] = False
+    elif df[key].mean()<v_low_th:
+        df['event'] = 'low'
+        df['good'] = True
+    elif v_mean < v_mid:
+        df['event'] = 'low'
+        df['good'] = False
+    else:
+        df['event'] = 'unidentified'
+        df['good'] = False
+
+    return df
 
 def capture_transitions(
         df: pd.DataFrame, key:str, 
@@ -91,50 +144,64 @@ def capture_transitions(
     v_high_th = v_low+(v_high-v_low)*threshold_pct
     v_low_th = v_high-(v_high-v_low)*threshold_pct
     clock_period = 1/clock_frequency
-    min_transition_slope = (v_high_th-v_low_th)/1000/2
-    resolving_sample_period = clock_period/1000
-    min_delay = clock_period
+    _downsample_samples_per_period = 40
+    
+    min_transition_slope = (v_high_th-v_low_th)/_downsample_samples_per_period/2
+    resolving_sample_period = clock_period/_downsample_samples_per_period
+    min_delay = 2*clock_period
     hold = False
     t_transition = 0
     triggered = False
     first_edge_rising = False
-    # Use smoothed signal to find a transition 
-    resample_time = linspace(min_delay, df['time'].max(), num=int(ceil((df['time'].max()-min_delay)/resolving_sample_period)))
+    # Use resampled signal to find a transition 
+    # drop first clock period
     df_trim = df.where(df['time']>=min_delay).dropna()
+    df_trim['time']-=df_trim['time'].min()
+    resample_time = linspace(0, df_trim['time'].max(), num=int(ceil(df_trim['time'].max()/resolving_sample_period)))
     interp_data: BSpline = make_interp_spline(y=df_trim[key], x=df_trim['time'])
     df_resampled = pd.DataFrame({key: interp_data(resample_time), 'time': resample_time})
-    df_smoothed = df_resampled.rolling(window=10).median().dropna(ignore_index=True)
-    for i in range(1, len(df_smoothed.index)):
+    
+    for i in range(1, len(df_resampled.index)):
         if triggered:
             break
         elif not hold:
             # Check to see if signal deviates outside of logic level
-            if df_smoothed[key][i] - df_smoothed[key][i-1] < -min_transition_slope and df_smoothed[key][i] < v_high_th:
+            if df_resampled[key][i] - df_resampled[key][i-1] < -min_transition_slope and df_resampled[key][i] < v_high_th:
                 hold = True
-                t_transition = df['time'][i]
+                t_transition = df_resampled['time'][i]
                 first_edge_rising = False
-            elif df_smoothed[key][i] - df_smoothed[key][i-1] > min_transition_slope and df_smoothed[key][i] > v_low_th:
+            elif df_resampled[key][i] - df_resampled[key][i-1] > min_transition_slope and df_resampled[key][i] > v_low_th:
                 hold = True
-                t_transition = df_smoothed['time'][i]
+                t_transition = df_resampled['time'][i]
                 first_edge_rising = True
             else:
                 continue
         else:
             # Check to see if signal has completed a transition from one level to the next
-            is_high_to_low = first_edge_rising and df_resampled[key][i] < df_resampled[key][i-1] and df_resampled[key][i] < v_low_th
-            is_low_to_high = not first_edge_rising and df_resampled[key][i] > df_resampled[key][i-1] and df_resampled[key][i] > v_high_th
+            is_high_to_low = not first_edge_rising and df_resampled[key][i] < df_resampled[key][i-1] and df_resampled[key][i] < v_low_th
+            is_low_to_high = first_edge_rising and df_resampled[key][i] > df_resampled[key][i-1] and df_resampled[key][i] > v_high_th
             if is_high_to_low or is_low_to_high:
                 if t_transition + df_resampled['time'][i] >= clock_period:
                     triggered = True
                     try:
-                        t_transition = walk_forward_to_logic_level(
-                            df_resampled, t_transition, 
+                        # check transition in both directions to ensure that the transition is from one level to the 
+                        # other and not just a large wobble
+                        t_transition = check_logic_level(
+                            df_trim, t_transition, 
+                            v_high if is_high_to_low else v_low, 
+                            v_high*0.01, key,
+                            forward=False
+                            )
+                        check_logic_level(
+                            df_trim, t_transition, 
                             v_low if is_high_to_low else v_high, 
-                            v_high*0.01, key
+                            v_high*0.01, key,
+                            forward=True
                             )
                         break
                     except:
                         triggered = False
+                        hold = False
                         continue
                 else:
                     hold = False
@@ -142,13 +209,13 @@ def capture_transitions(
         raise Exception()
 
     # take signal from half a clock period before the transition
-    df_trig = df_resampled.where(df_resampled['time']>=t_transition-clock_period).dropna(ignore_index=True)
+    df_trig = df_trim.where(df_trim['time']>=t_transition).dropna(ignore_index=True)
     # rezero the time of the data signal from the triggered point
-    df_trig['time'] = df_trig['time']-df_trig['time'][0]
+    df_trig['time'] -= df_trig['time'].min()
     df_classified = pd.DataFrame()
-    for _, data in df_trig.groupby(df_trig.index // 1000):
+    for period_index, data in df_trig.groupby(df_trig.time // clock_period):
         period_df = classify_period(data, key, v_high_th, v_low_th, min_transition_slope)
-        period_df['period_index'] = floor(period_df['time'].min()/clock_period)
+        period_df['period_index'] = period_index
         period_df['period_time'] = period_df['time']-period_df['time'].min()
         df_classified = pd.concat(
             [
@@ -161,7 +228,7 @@ def capture_transitions(
 def characterise_transitions(
         transitions_df: pd.DataFrame, key:str, 
         v_high:float, v_low:float, 
-        threshold_pct:float
+        rise_fall_pct:float = 0.9
         ) -> Dict:
     '''
     Takes all transitions and measures transition features including rise/fall time
@@ -179,16 +246,19 @@ def characterise_transitions(
     TODO: Potentially add preshoot analysis and ringing analysis. 
     '''
     
-    v_tol = (v_high-v_low)*(1-threshold_pct)
+    v_tol = (v_high-v_low)*(1-rise_fall_pct)
     v_low_th = v_low+v_tol
     v_high_th = v_high-v_tol
     measurements_dict = {}
     edge_v = v_high_th-v_low_th
     mid_v = edge_v/2+v_low_th
     edge_df = transitions_df.where((transitions_df['event'] == 'rise')|(transitions_df['event'] == 'fall')).dropna()
-    for edge, data in edge_df.where(abs(edge_df[key]-mid_v)<=mid_v).dropna().groupby('event'):
+    for edge, data in edge_df.groupby('event'):
         edge_sign = 1 if edge=='rise' else -1
-        measurements_dict.update({f'{edge.capitalize()} Time': data.groupby('period_index').apply(lambda period: period['time'].max()-period['time'].min()).mean()})
+        if edge == 'rise':
+            measurements_dict.update({f'{edge.capitalize()} Time': data.groupby('period_index').apply(lambda period:period['period_time'].where(period[key]>v_high_th).min()-period['period_time'].where(period[key]>v_low_th).min()).mean()})
+        else:
+            measurements_dict.update({f'{edge.capitalize()} Time': data.groupby('period_index').apply(lambda period:period['period_time'].where(period[key]<v_low_th).min()-period['period_time'].where(period[key]<v_high_th).min()).mean()})
         measurements_dict.update({f'Slew Rate {edge.capitalize()}': edge_v/measurements_dict[f'{edge.capitalize()} Time']*edge_sign})
     
     measurements_dict.update({

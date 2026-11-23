@@ -18,3 +18,4 @@ to manually implement parameter sweeps and put in the effort to configure specif
 
    source/modules
    source/examples
+   source/analysis

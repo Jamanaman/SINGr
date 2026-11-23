@@ -10,7 +10,19 @@ Currently, only the base configuration structure is implemented, which uses a re
 - **Waveform Analysis**
   - This assesses all valid transitions and logic states (currently limited to NRZ/PAM2 waveforms) and provides, *rise/fall time* (at 10% and 90%), *settling time* (within 10% margin of stable value), *slew rate*, *overshoot*, and *undershoot*. 
 - **Eye Analysis**
-  - This segments a time series of logic transitions into chunks of 3 and then overlays them to assess eye width, eye height, eye amplitude, and logic levels.  
+  - This segments a time series of logic transitions into chunks of 2 and then overlays them to assess eye width, eye height, eye amplitude, and logic levels.  
+
+For full API docs go here: https://singr.readthedocs.io/en/latest/index.html
+
+## Installation
+This package can be installed simply using pip install via:
+
+``pip install SINGr``
+
+Alternatively it can be built by cloning the repository either by using `uv build --wheel` and pip installed or one can use `uv pip install .`. `uv` is not essential but is especially useful for developers as that is what has been used to develop the package as a whole.
+
+## Building the Docs
+To build the docs run ``uv sync --group docs`` and  ``uv run ./docs/make html``. To open them, open the index.html file in the `\docs\build\` directory and navigate from there or read the stable documentation online.
 
 For full API docs go here: https://singr.readthedocs.io/en/latest/index.html
 

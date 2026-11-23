@@ -67,7 +67,7 @@ if __name__ == '__main__':
                 'clock_frequency': comp.net_tree.clock_frequencies_Hz[0],
                 'v_high': comp.net_tree.v_logic[0][1],
                 'v_low':  comp.net_tree.v_logic[0][0],
-                'threshold_pct': 0.9, 
+                'threshold_pct': 0.8, 
                 'statistical_jitter_s': 0,
                 'visualise': True}
 

@@ -94,7 +94,7 @@ def analyse_simulation_results(
             'clock_frequency': composition.net_tree.clock_frequencies_Hz[0],
             'v_high': composition.net_tree.v_logic[0][1],
             'v_low': composition.net_tree.v_logic[0][0],
-            'threshold_pct': 0.9,
+            'threshold_pct': 0.8,
             'statistical_jitter_s': 0,
             'datastream': None,
             'visualise': True,
@@ -121,7 +121,7 @@ def analyse_simulation_results(
             'clock_frequency': composition.net_tree.clock_frequencies_Hz[0],
             'v_high': composition.net_tree.v_logic[0][1],
             'v_low': composition.net_tree.v_logic[0][0],
-            'threshold_pct': 0.9,
+            'threshold_pct': 0.8,
             'datastream': None,
             'visualise': True,
             'output_report': False 
