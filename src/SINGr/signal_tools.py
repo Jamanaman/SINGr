@@ -39,66 +39,76 @@ def classify_period(
     have achieved a full transition within the period and where the end voltage sits for the period. 
 
     '''
-
+    df.index-=df.index.min()
     window_length = 10
-    derivative_threshold = min_transition_slope*window_length
     v_mid = (v_high_th+v_low_th)/2
+    high_low = df[key].iloc[0] >= v_mid and df[key].iloc[-1] <= v_mid
+    low_high = df[key].iloc[0] <= v_mid and df[key].iloc[-1] >= v_mid
     
     # find mean slope of the period
-    diff_df = df.diff().rolling(window_length).mean()
-    mean_diff_df = diff_df.mean()
-    dxdt = mean_diff_df[key]
+    diff_df = df.diff().rolling(window_length).median()
+    dxdt = diff_df.mean()[key]
 
     # Classify event type 
-    if dxdt > derivative_threshold:
-        diff_df.sort_index(inplace=True)
-        diff_df.reset_index(inplace=True)
+    if low_high:
+        diff_df = diff_df.sort_index().reset_index()
         diff_df['index'] -= diff_df['index'].min()
-        diff_df['greater_than_mean'] = diff_df[key]>mean_diff_df[key]
+        diff_df['greater_than_mean'] = diff_df[key]>dxdt
         diff_df_shift = diff_df['greater_than_mean'] != diff_df['greater_than_mean'].shift()
-        diff_df_agg = diff_df.groupby(diff_df_shift.cumsum()).agg({'index':['count', 'min', 'max']})
+        diff_df_agg = diff_df.where(diff_df['greater_than_mean']).groupby(diff_df_shift.cumsum()).agg({'index':['count', 'min', 'max']})
         diff_df_agg.columns = diff_df_agg.columns.droplevel()
         maxCount = diff_df_agg[diff_df_agg['count'] == diff_df_agg['count'].max()]
-        end_state_voltage = df.iloc[maxCount['max'].values[0]-1:-1][key].mean()
+        end_state_voltage = df.iloc[int(maxCount['max'].values[0]-1):-1][key].mean()
 
-        df['event'] = 'rise'
         if end_state_voltage >= v_high_th:
+            df['event'] = 'rise'
             df['good'] = True
+            return df
         elif end_state_voltage >= v_mid:
+            df['event'] = 'rise'
             df['good'] = False
-    elif dxdt < -derivative_threshold:
-        diff_df.sort_index(inplace=True)
-        diff_df.reset_index(inplace=True)
+            return df
+        else:
+            pass
+        # else no edge detected
+    if high_low:
+        diff_df=diff_df.sort_index().reset_index()
         diff_df['index'] -= diff_df['index'].min()
-        diff_df['less_than_mean'] = diff_df[key]<mean_diff_df[key]
+        diff_df['less_than_mean'] = diff_df[key]<dxdt
         diff_df_shift = diff_df['less_than_mean'] != diff_df['less_than_mean'].shift()
         diff_df_agg = diff_df.groupby(diff_df_shift.cumsum()).agg({'index':['count', 'min', 'max']})
         diff_df_agg.columns = diff_df_agg.columns.droplevel()
         maxCount = diff_df_agg[diff_df_agg['count'] == diff_df_agg['count'].max()]
         end_state_voltage = df.iloc[maxCount['max'].values[0]-1:-1][key].mean()
         
-        df['event'] = 'fall'
         if end_state_voltage <= v_low_th:
+            df['event'] = 'fall'
             df['good'] = True
+            return df
         elif end_state_voltage <= v_mid:
+            df['event'] = 'fall'
             df['good'] = False
-    else:
-        v_median = df[key].median()
-        if v_median>v_high_th:
-            df['event'] = 'high'
-            df['good'] = True
-        elif v_median > v_mid:
-            df['event'] = 'high'
-            df['good'] = False
-        elif df[key].median()<v_low_th:
-            df['event'] = 'low'
-            df['good'] = True
-        elif v_median < v_mid:
-            df['event'] = 'low'
-            df['good'] = False
+            return df
         else:
-            df['event'] = 'unidentified'
-            df['good'] = False
+            pass
+        # else no edge transition detected 
+    
+    v_mean = df[key].mean()
+    if v_mean>v_high_th:
+        df['event'] = 'high'
+        df['good'] = True
+    elif v_mean > v_mid:
+        df['event'] = 'high'
+        df['good'] = False
+    elif df[key].mean()<v_low_th:
+        df['event'] = 'low'
+        df['good'] = True
+    elif v_mean < v_mid:
+        df['event'] = 'low'
+        df['good'] = False
+    else:
+        df['event'] = 'unidentified'
+        df['good'] = False
 
     return df
 
@@ -134,33 +144,35 @@ def capture_transitions(
     v_high_th = v_low+(v_high-v_low)*threshold_pct
     v_low_th = v_high-(v_high-v_low)*threshold_pct
     clock_period = 1/clock_frequency
-    min_transition_slope = (v_high_th-v_low_th)/1000/2
-    resolving_sample_period = clock_period/1000
-    min_delay = clock_period
+    _downsample_samples_per_period = 40
+    
+    min_transition_slope = (v_high_th-v_low_th)/_downsample_samples_per_period/2
+    resolving_sample_period = clock_period/_downsample_samples_per_period
+    min_delay = 2*clock_period
     hold = False
     t_transition = 0
     triggered = False
     first_edge_rising = False
-    # Use smoothed signal to find a transition 
+    # Use resampled signal to find a transition 
     # drop first clock period
     df_trim = df.where(df['time']>=min_delay).dropna()
     df_trim['time']-=df_trim['time'].min()
     resample_time = linspace(0, df_trim['time'].max(), num=int(ceil(df_trim['time'].max()/resolving_sample_period)))
     interp_data: BSpline = make_interp_spline(y=df_trim[key], x=df_trim['time'])
     df_resampled = pd.DataFrame({key: interp_data(resample_time), 'time': resample_time})
-    df_smoothed = df_resampled.rolling(window=10).median().dropna(ignore_index=True)
-    for i in range(1, len(df_smoothed.index)):
+    
+    for i in range(1, len(df_resampled.index)):
         if triggered:
             break
         elif not hold:
             # Check to see if signal deviates outside of logic level
-            if df_smoothed[key][i] - df_smoothed[key][i-1] < -min_transition_slope and df_smoothed[key][i] < v_high_th:
+            if df_resampled[key][i] - df_resampled[key][i-1] < -min_transition_slope and df_resampled[key][i] < v_high_th:
                 hold = True
-                t_transition = df_smoothed['time'][i]
+                t_transition = df_resampled['time'][i]
                 first_edge_rising = False
-            elif df_smoothed[key][i] - df_smoothed[key][i-1] > min_transition_slope and df_smoothed[key][i] > v_low_th:
+            elif df_resampled[key][i] - df_resampled[key][i-1] > min_transition_slope and df_resampled[key][i] > v_low_th:
                 hold = True
-                t_transition = df_smoothed['time'][i]
+                t_transition = df_resampled['time'][i]
                 first_edge_rising = True
             else:
                 continue
